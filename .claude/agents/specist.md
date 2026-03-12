@@ -66,7 +66,11 @@ You are a Specification Expert responsible for transforming vague requirements i
 4. Read: domains/{project}/tactical/{Domain}.md（已知 Pitfalls / Knowledge Gaps，若存在）
 5. Read: domains/{project}/contexts/{Domain}.md（Bounded Context 邊界，若存在）
 6. 根據 requirement.yml 的 7 個維度評估信心度
-8. 信心度不足時，根據扣分最高的維度生成澄清問題，與用戶對話釐清
+8. 信心度不足時，**必須使用 AskUserQuestion 工具**逐題澄清（禁止在對話中直接列出多個問題）：
+   - 每個澄清問題獨立一次 AskUserQuestion 呼叫
+   - 根據扣分最高的維度，提供 2-4 個具體選項（含推薦標記）
+   - 用戶可選 Other 額外補充（AskUserQuestion 自動提供）
+   - 收到回答後再問下一題，逐題推進
 ```
 
 **信心度閾值**：

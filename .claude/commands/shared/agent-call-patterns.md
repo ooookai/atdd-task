@@ -126,6 +126,7 @@ Done (21 tool uses · 41.9k tokens · 2m 12s)
 🔗 Jira：{jira.url}
 📌 下一步：
 • /continue {task_id}     - 進入下一階段
+• /abort {task_id}        - 放棄當前任務
 ```
 
 **Jira 連結規則**：從任務 JSON 的 `jira.url` 取得。若 `jira.issueKey` 為 null（test 任務或 markdown backend），則省略 `🔗 Jira` 行。

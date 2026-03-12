@@ -155,4 +155,11 @@ gate → GO
 
 參考：`shared/agent-call-patterns.md`
 
-**輸出**：任務識別、階段轉移、/clear 提示、啟動 Agent
+**Agent 完成後的輸出格式**（必須嚴格遵守，所有命令帶 task_id）：
+```
+📌 下一步：
+• /continue {task_id}     - 進入下一階段
+• /abort {task_id}        - 放棄當前任務
+```
+
+> 其他命令（/status、/fix-*、/done 等）不需要列出，用戶已知。只列主要動作。
