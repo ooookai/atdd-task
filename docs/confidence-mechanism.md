@@ -1,367 +1,367 @@
-# 信心度機制（Confidence Mechanism）
+# Confidence Mechanism
 
-ATDD Hub 使用信心度機制確保 AI Agent 在關鍵決策點不會盲目前進。當資訊不足時，系統會主動阻擋並要求澄清，而非猜測後產出錯誤結果。
+ATDD Hub uses a confidence mechanism to ensure AI Agents don't blindly proceed at critical decision points. When information is insufficient, the system actively blocks and requests clarification, rather than guessing and producing incorrect results.
 
-## 機制總覽
+## Mechanism Overview
 
-系統有 **兩套信心度評估**，分別守護不同的品質關卡：
+The system has **two confidence assessment systems**, each guarding different quality gates:
 
-| 信心度 | 負責 Agent | 保護對象 | 門檻 |
-|--------|-----------|----------|------|
-| 需求信心度 | specist | 需求 → 規格的轉換品質 | ≥ 95% 才可進入 specification |
-| 知識信心度 | curator | Domain 知識庫的寫入正確性 | ≥ 95% 才可寫入（結構 ≥ 70% 可提案） |
+| Confidence | Responsible Agent | Protected Target | Threshold |
+|------------|------------------|------------------|-----------|
+| Requirement Confidence | specist | Quality of requirement → specification conversion | ≥ 95% to enter specification |
+| Knowledge Confidence | curator | Correctness of Domain knowledge base writes | ≥ 95% to write (structure ≥ 70% to propose) |
 
-### 共同設計原則
+### Common Design Principles
 
-1. **扣分制**：起始 100%，依據發現的問題逐項扣分
-2. **資料來源明確**：每套機制定義 Agent 應讀取哪些文件，以及明確排除哪些文件
-3. **硬阻擋**：所有閘門都是硬阻擋（`exit 1` 或 `exit 2`），不是軟提醒
-4. **YAML 定義**：信心度維度與權重定義於 `.claude/config/confidence/` 目錄
+1. **Deduction system**: Starts at 100%, deducted per issue found
+2. **Clear data sources**: Each system defines which files the Agent should read, and which to explicitly exclude
+3. **Hard block**: All gates are hard blocks (`exit 1` or `exit 2`), not soft reminders
+4. **YAML definitions**: Confidence dimensions and weights are defined in the `.claude/config/confidence/` directory
 
 ```
 .claude/config/confidence/
-├── requirement.yml   # 需求信心度（specist 用）
-└── knowledge.yml     # 知識信心度（curator 用）
+├── requirement.yml   # Requirement confidence (used by specist)
+└── knowledge.yml     # Knowledge confidence (used by curator)
 ```
 
 ---
 
-## 一、需求信心度（Requirement Confidence）
+## 1. Requirement Confidence
 
-**定義檔**：`.claude/config/confidence/requirement.yml`
+**Definition file**: `.claude/config/confidence/requirement.yml`
 
-### 目的
+### Purpose
 
-Specist Agent 在 requirement 階段評估需求是否足夠清晰，判斷能否安全地進入 specification（Given-When-Then 規格撰寫）。
+The Specist Agent evaluates during the requirement phase whether requirements are sufficiently clear, determining if it's safe to enter the specification phase (Given-When-Then specification writing).
 
-### 門檻
+### Thresholds
 
-| 信心度 | 狀態 | 動作 |
-|--------|------|------|
-| < 70% | 嚴重不足 | 必須澄清，不可繼續 |
-| 70-94% | 部分明確 | 建議澄清，用戶可選擇跳過 |
-| **≥ 95%** | **足夠明確** | **可進入 specification 階段** |
+| Confidence | Status | Action |
+|------------|--------|--------|
+| < 70% | Severely insufficient | Must clarify, cannot continue |
+| 70-94% | Partially clear | Clarification recommended, user can choose to skip |
+| **≥ 95%** | **Sufficiently clear** | **Can enter specification phase** |
 
-### 資料來源
+### Data Sources
 
-Specist 評估時讀取以下文件：
+The specist reads the following files when evaluating:
 
-| 文件 | 用途 |
-|------|------|
-| `domains/{project}/domain-map.md` | 識別主要 Domain 與跨域關係 |
-| `domains/{project}/ul.md` | 領域語言對照，確認術語一致性 |
-| `domains/{project}/business-rules.md` | 跨域商務規則比對 |
-| `domains/{project}/strategic/{Domain}.md` | 商務目的、能力、範疇、狀態流程 |
-| `domains/{project}/tactical/{Domain}.md` | 已知 Pitfalls、Knowledge Gaps（條件式） |
+| File | Purpose |
+|------|---------|
+| `domains/{project}/domain-map.md` | Identify primary Domain and cross-domain relationships |
+| `domains/{project}/ul.md` | Domain language mapping, confirm terminology consistency |
+| `domains/{project}/business-rules.md` | Cross-domain business rule comparison |
+| `domains/{project}/strategic/{Domain}.md` | Business purpose, capabilities, scope, state flows |
+| `domains/{project}/tactical/{Domain}.md` | Known Pitfalls, Knowledge Gaps (conditional) |
 
-**明確排除**：Codebase（`app/`, `db/`, `config/`）。程式碼分析是 coder 的責任，specist 只從業務角度評估需求。
+**Explicitly excluded**: Codebase (`app/`, `db/`, `config/`). Code analysis is the coder's responsibility; the specist only evaluates requirements from a business perspective.
 
-### 七大維度
+### Seven Dimensions
 
-#### 1. 範疇邊界清晰度（20%）
+#### 1. Scope Boundary Clarity (20%)
 
-判斷需求歸屬哪個 Domain、是否跨域、邊界劃分在哪裡。
+Determines which Domain the requirement belongs to, whether it's cross-domain, and where boundaries are drawn.
 
-**為什麼權重最高**：邊界不清會導致後續所有分析建立在錯誤的範圍上，影響規格撰寫、測試設計、實作方向。
+**Why highest weight**: Unclear boundaries cause all subsequent analysis to be built on incorrect scope, affecting specification writing, test design, and implementation direction.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| SB-1 | -20 | 無法判斷需求歸屬哪個 Domain |
-| SB-2 | -15 | 跨域需求但未明確各 Domain 的責任劃分 |
-| SB-3 | -10 | Domain 歸屬明確但範疇邊界模糊 |
-| SB-4 | -5 | 邊界大致清楚但有個別灰色地帶 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| SB-1 | -20 | Cannot determine which Domain the requirement belongs to |
+| SB-2 | -15 | Cross-domain requirement but responsibility division not clarified |
+| SB-3 | -10 | Domain assignment is clear but scope boundary is vague |
+| SB-4 | -5 | Boundaries mostly clear but with individual gray areas |
 
-#### 2. 邏輯一致性（20%）
+#### 2. Logical Consistency (20%)
 
-使用者口述需求是否與現有 Domain 知識邏輯一致，新需求有沒有跟既有商務規則矛盾。
+Whether the user's stated requirements are logically consistent with existing Domain knowledge, and whether new requirements contradict existing business rules.
 
-**為什麼權重最高**：與既有規則矛盾代表方向錯誤，越早發現越好。
+**Why highest weight**: Contradicting existing rules means the direction is wrong — the earlier discovered, the better.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| LC-1 | -20 | 需求與既有商務規則直接矛盾 |
-| LC-2 | -15 | 需求在現有狀態流程下不可行 |
-| LC-3 | -10 | 需求可行但與既有模式不一致，需確認 |
-| LC-4 | -5 | 大致一致但有個別規則需確認 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| LC-1 | -20 | Requirement directly contradicts existing business rules |
+| LC-2 | -15 | Requirement is infeasible under existing state flows |
+| LC-3 | -10 | Requirement is feasible but inconsistent with existing patterns, needs confirmation |
+| LC-4 | -5 | Mostly consistent but individual rules need confirmation |
 
-#### 3. 商務邏輯清晰度（20%）
+#### 3. Business Logic Clarity (20%)
 
-業務規則是否完整、清晰。所有涉及的計算、驗證、授權邏輯是否已明確。
+Whether business rules are complete and clear. Whether all involved calculations, validations, and authorization logic are defined.
 
-**為什麼權重最高**：商務邏輯是需求的核心。即使邊界清楚、術語一致，關鍵業務規則仍模糊，產出的規格就不可靠。
+**Why highest weight**: Business logic is the core of requirements. Even if boundaries are clear and terminology is consistent, if key business rules remain vague, the resulting specification is unreliable.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| BL-1 | -20 | 核心計算邏輯或驗證規則完全未定義 |
-| BL-2 | -15 | 業務規則存在但不完整 |
-| BL-3 | -10 | 規則大致清楚但有細節待確認 |
-| BL-4 | -5 | 規則清楚但知識庫尚未記錄 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| BL-1 | -20 | Core calculation logic or validation rules completely undefined |
+| BL-2 | -15 | Business rules exist but are incomplete |
+| BL-3 | -10 | Rules mostly clear but details need confirmation |
+| BL-4 | -5 | Rules are clear but not yet recorded in the knowledge base |
 
-#### 4. 邊際情境完整度（15%）
+#### 4. Edge Case Completeness (15%)
 
-邊界條件、例外情況是否已釐清。例如：金額為零、數量超限、時間衝突、權限不足。
+Whether boundary conditions and exception cases have been clarified. For example: zero amount, quantity exceeds limit, time conflicts, insufficient permissions.
 
-**為什麼權重略低**：Edge case 是最容易遺漏的部分，但相比邊界和邏輯，可在後續階段補充。
+**Why slightly lower weight**: Edge cases are the most commonly missed part, but compared to boundaries and logic, they can be supplemented in later phases.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| EC-1 | -15 | 完全未討論邊際情境 |
-| EC-2 | -10 | 僅討論 happy path，未確認異常路徑 |
-| EC-3 | -8 | 已知 Pitfall 未被納入需求考量 |
-| EC-4 | -5 | 大部分邊際情境已釐清，但有個別未確認 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| EC-1 | -15 | Edge cases completely undiscussed |
+| EC-2 | -10 | Only happy path discussed, exception paths not confirmed |
+| EC-3 | -8 | Known Pitfalls not incorporated into requirement considerations |
+| EC-4 | -5 | Most edge cases clarified, but some individual cases unconfirmed |
 
-#### 5. 影響範圍辨識（10%）
+#### 5. Impact Scope Identification (10%)
 
-修改此需求後，對上下游 Domain 的連帶影響是否已盤點。
+Whether downstream and upstream Domain impacts have been inventoried after modifying this requirement.
 
-**為什麼權重較低**：Specist 能從知識庫判斷，但完整影響需 coder 確認。
+**Why lower weight**: The specist can determine this from the knowledge base, but complete impact requires coder confirmation.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| IS-1 | -10 | 跨域影響完全未辨識 |
-| IS-2 | -8 | 知道有跨域影響但未確認程度 |
-| IS-3 | -5 | 上下游已盤點但有個別整合點待確認 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| IS-1 | -10 | Cross-domain impacts completely unidentified |
+| IS-2 | -8 | Know there are cross-domain impacts but degree not confirmed |
+| IS-3 | -5 | Upstream/downstream inventoried but individual integration points need confirmation |
 
-#### 6. 可驗收性（10%）
+#### 6. Acceptability (10%)
 
-需求是否能被轉化為具體的 Given-When-Then 驗收場景。
+Whether requirements can be transformed into concrete Given-When-Then acceptance scenarios.
 
-**為什麼重要**：ATDD 的核心檢查。如果需求無法表達為可驗證的場景，代表需求本身不夠具體。
+**Why important**: This is the core check of ATDD. If requirements cannot be expressed as verifiable scenarios, the requirements themselves are not specific enough.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| TE-1 | -10 | 需求過於抽象，無法寫出任何驗收場景 |
-| TE-2 | -8 | 可寫出部分場景但關鍵驗收條件不明確 |
-| TE-3 | -5 | 場景可寫但預期結果不確定 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| TE-1 | -10 | Requirements too abstract, cannot write any acceptance scenarios |
+| TE-2 | -8 | Can write partial scenarios but key acceptance criteria are unclear |
+| TE-3 | -5 | Scenarios can be written but expected results are uncertain |
 
-#### 7. 共同語言一致性（5%）
+#### 7. Ubiquitous Language Consistency (5%)
 
-使用者口述中的術語是否與 `ul.md` 定義一致。
+Whether terminology used in the user's statements is consistent with `ul.md` definitions.
 
-**為什麼權重最低**：術語不一致重要但容易修正，在對話中即時校準即可。
+**Why lowest weight**: Terminology inconsistency is important but easily correctable — it can be calibrated in real-time during conversation.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| UL-1 | -5 | 使用了知識庫中不存在的術語 |
-| UL-2 | -3 | 術語存在但使用者理解與定義不同 |
-| UL-3 | -2 | 同義詞混用，已在對話中澄清 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| UL-1 | -5 | Used terminology not found in the knowledge base |
+| UL-2 | -3 | Terminology exists but user's understanding differs from the definition |
+| UL-3 | -2 | Synonyms mixed, already clarified in conversation |
 
-### 計算範例
+### Calculation Example
 
 ```
-需求：新增折價券功能
+Requirement: Add coupon feature
 
-- 範疇邊界清晰度: 80%（SB-3: 折價券歸屬 Billing 還是 Promotion 不確定）
-- 邏輯一致性: 90%（LC-4: 需確認折價券是否適用既有結算規則）
-- 商務邏輯清晰度: 60%（BL-1: 折價券計算邏輯未定義）
-- 邊際情境完整度: 50%（EC-1: 折價券金額 > 商品金額怎麼辦？）
-- 影響範圍辨識: 70%（IS-2: 可能影響發票和 ERP 結算）
-- 可驗收性: 85%（TE-3: 預期折扣金額的計算規則待確認）
-- 共同語言一致性: 90%（UL-3:「折扣」vs「折價券」已澄清）
+- Scope Boundary Clarity: 80% (SB-3: Unclear whether coupons belong to Billing or Promotion)
+- Logical Consistency: 90% (LC-4: Need to confirm if coupons apply to existing settlement rules)
+- Business Logic Clarity: 60% (BL-1: Coupon calculation logic undefined)
+- Edge Case Completeness: 50% (EC-1: What if coupon amount > product amount?)
+- Impact Scope Identification: 70% (IS-2: May affect invoicing and ERP settlement)
+- Acceptability: 85% (TE-3: Expected discount amount calculation rules need confirmation)
+- Ubiquitous Language Consistency: 90% (UL-3: "discount" vs "coupon" already clarified)
 
-加權總分：
+Weighted total:
 80×0.20 + 90×0.20 + 60×0.20 + 50×0.15 + 70×0.10 + 85×0.10 + 90×0.05
 = 16 + 18 + 12 + 7.5 + 7 + 8.5 + 4.5
 = 73.5%
 
-結果：< 95%，必須先澄清再進入 specification。
+Result: < 95%, must clarify before entering specification.
 ```
 
-### 閘門實作
+### Gate Implementation
 
-由 `.claude/hooks/validate-agent-call.sh` 在 specist 進入 specification 階段時檢查。信心度 < 95% 時 `return 1` 硬阻擋。
+Handled by `.claude/hooks/validate-agent-call.sh` when the specist enters the specification phase. Returns `1` to hard block when confidence < 95%.
 
 ---
 
-## 二、知識信心度（Knowledge Confidence）
+## 2. Knowledge Confidence
 
-**定義檔**：`.claude/config/confidence/knowledge.yml`
+**Definition file**: `.claude/config/confidence/knowledge.yml`
 
-### 目的
+### Purpose
 
-Curator Agent 在盤點和更新 Domain 知識時，評估知識是否足夠完整、正確，判斷能否安全地寫入知識庫。
+The Curator Agent evaluates when inventorying and updating Domain knowledge whether the knowledge is sufficiently complete and correct, determining if it's safe to write to the knowledge base.
 
-### 雙重門檻
+### Dual Thresholds
 
-知識信心度使用**雙重門檻**，對應 Curator 工作流程的不同階段：
+Knowledge confidence uses **dual thresholds**, corresponding to different stages of the Curator workflow:
 
-| 門檻 | 分數 | 對應階段 | 意義 |
-|------|------|----------|------|
-| 結構門檻 | ≥ 70% | Phase 2 → Phase 3 | 結構足夠清楚，可撰寫更新提案 |
-| **內容門檻** | **≥ 95%** | **Phase 4 → Phase 5** | **內容已充分驗證，可寫入知識庫** |
+| Threshold | Score | Corresponding Phase | Meaning |
+|-----------|-------|-------------------|---------|
+| Structure Threshold | ≥ 70% | Phase 2 → Phase 3 | Structure is clear enough to write an update proposal |
+| **Content Threshold** | **≥ 95%** | **Phase 4 → Phase 5** | **Content sufficiently verified, can write to knowledge base** |
 
-**為什麼需要雙重門檻**：結構信心度只需知道「缺什麼」，就能開始寫提案讓用戶審閱。但實際寫入前，每個項目的內容正確性必須經過用戶確認，因此內容門檻設為 95%。
+**Why dual thresholds**: Structure confidence only needs to know "what's missing" to start writing a proposal for user review. But before actually writing, each item's content correctness must be confirmed by the user, hence the content threshold is set at 95%.
 
-### 資料來源
+### Data Sources
 
-Curator 評估時讀取以下文件：
+The curator reads the following files when evaluating:
 
-| 文件 | 用途 |
-|------|------|
-| `domains/{project}/ul.md` | 術語定義完整性、類型分類、交叉引用 |
-| `domains/{project}/business-rules.md` | 商務規則覆蓋度（VR/ST/CA/AU/CD） |
-| `domains/{project}/domain-map.md` | 跨域關係、Context Mapping、邊界定義 |
-| `domains/{project}/strategic/{Domain}.md` | 商務邏輯、能力定義、範疇、狀態流程 |
-| `domains/{project}/tactical/{Domain}.md` | 系統設計決策、已知 Pitfalls（條件式） |
+| File | Purpose |
+|------|---------|
+| `domains/{project}/ul.md` | Terminology definition completeness, type classification, cross-references |
+| `domains/{project}/business-rules.md` | Business rule coverage (VR/ST/CA/AU/CD) |
+| `domains/{project}/domain-map.md` | Cross-domain relationships, Context Mapping, boundary definitions |
+| `domains/{project}/strategic/{Domain}.md` | Business logic, capability definitions, scope, state flows |
+| `domains/{project}/tactical/{Domain}.md` | System design decisions, known Pitfalls (conditional) |
 
-**明確排除**：Codebase（`app/`, `db/`, `config/`）。Code-knowledge 一致性是 review/gate 階段的責任。Curator 從業務對話取得知識，不從程式碼推導。這遵循 DDD 原則：知識流向是「業務現實 → 知識文件 → 程式碼」，不可反向。
+**Explicitly excluded**: Codebase (`app/`, `db/`, `config/`). Code-knowledge consistency is the responsibility of the review/gate phases. The Curator obtains knowledge from business conversations, not from code inference. This follows DDD principles: the knowledge flow direction is "business reality → knowledge documents → code", and must not be reversed.
 
-### 七大維度
+### Seven Dimensions
 
-#### 1. 術語完整度（10%）
+#### 1. Terminology Completeness (10%)
 
-評估 `ul.md` 中術語定義的完整性。所有涉及的概念是否都有定義，定義是否包含類型分類、中英對照、範例、交叉引用。
+Evaluates the completeness of terminology definitions in `ul.md`. Whether all involved concepts have definitions, and whether definitions include type classification, bilingual mapping, examples, and cross-references.
 
-**為什麼權重較低**：Ubiquitous Language 是 DDD 的根基，但術語相對容易補充。
+**Why lower weight**: Ubiquitous Language is the foundation of DDD, but terminology is relatively easy to supplement.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| TE-1 | -15 | 核心 Entity/Aggregate 完全缺少定義 |
-| TE-2 | -10 | 術語有定義但缺少類型分類 |
-| TE-3 | -8 | 術語缺少具體範例或中英對照 |
-| TE-4 | -5 | 相關術語缺少交叉引用 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| TE-1 | -15 | Core Entity/Aggregate completely missing definitions |
+| TE-2 | -10 | Terminology has definitions but lacks type classification |
+| TE-3 | -8 | Terminology lacks concrete examples or bilingual mapping |
+| TE-4 | -5 | Related terms lack cross-references |
 
-#### 2. 規則覆蓋度（25%）
+#### 2. Rule Coverage (25%)
 
-評估 `business-rules.md` 中規則的覆蓋程度。每個 Domain 應有完整的驗證規則（VR）、狀態轉換（ST）、計算規則（CA）、授權規則（AU）、跨域連鎖規則（CD）。
+Evaluates the coverage of rules in `business-rules.md`. Each Domain should have complete validation rules (VR), state transitions (ST), calculation rules (CA), authorization rules (AU), and cross-domain chain rules (CD).
 
-**為什麼權重最高**：商務規則是知識的核心價值，是所有下游 Agent（specist、tester、coder）最依賴的知識。
+**Why highest weight**: Business rules are the core value of knowledge — the knowledge that all downstream Agents (specist, tester, coder) depend on most.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| RC-1 | -25 | 核心驗證規則（VR）完全未定義 |
-| RC-2 | -20 | 狀態轉換規則（ST）缺失 |
-| RC-3 | -15 | 計算規則（CA）缺少公式或計算邏輯 |
-| RC-4 | -10 | 規則存在但缺少關鍵條件或例外處理 |
-| RC-5 | -5 | 規則大致完整但有個別條件待確認 |
-| RC-6 | -8 | 跨域連鎖規則（CD）未識別（domain-map 有跨域關係但 business-rules 無對應 CD 規則） |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| RC-1 | -25 | Core validation rules (VR) completely undefined |
+| RC-2 | -20 | State transition rules (ST) missing |
+| RC-3 | -15 | Calculation rules (CA) missing formulas or calculation logic |
+| RC-4 | -10 | Rules exist but missing key conditions or exception handling |
+| RC-5 | -5 | Rules mostly complete but individual conditions need confirmation |
+| RC-6 | -8 | Cross-domain chain rules (CD) not identified (domain-map shows cross-domain relationships but business-rules has no corresponding CD rules) |
 
-> **RC-6 說明**：當 `domain-map.md` 顯示兩個 Domain 有上下游關係時，`business-rules.md` 應有對應的 CD 規則記錄觸發-反應鏈。例如 SolarProject 狀態變更會觸發 Accounting 建立帳務記錄。缺少 CD 規則代表跨域影響未被文件化，下游開發容易遺漏。
+> **RC-6 Note**: When `domain-map.md` shows an upstream-downstream relationship between two Domains, `business-rules.md` should have a corresponding CD rule recording the trigger-reaction chain. For example, SolarProject status changes trigger Accounting to create financial records. Missing CD rules mean cross-domain impacts are undocumented, making downstream development prone to omissions.
 
-#### 3. 領域邊界清晰度（15%）
+#### 3. Domain Boundary Clarity (15%)
 
-評估 Domain 邊界的明確程度。包含責任範圍（Includes/Excludes）、與其他 Domain 的關係、整合點文件。
+Evaluates the clarity of Domain boundaries. Includes responsibility scope (Includes/Excludes), relationships with other Domains, and integration point documentation.
 
-**為什麼重要**：劃錯邊界是 DDD 中代價最高的錯誤，後期修正成本極高。
+**Why important**: Drawing wrong boundaries is the costliest error in DDD — late-stage correction costs are extremely high.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| BC-1 | -20 | Domain 責任完全不明確 |
-| BC-2 | -15 | 與其他 Domain 的關係未定義 |
-| BC-3 | -10 | 整合點（Sync API / Async Events）未文件化 |
-| BC-4 | -5 | 邊界大致清楚但有個別灰色地帶 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| BC-1 | -20 | Domain responsibilities completely unclear |
+| BC-2 | -15 | Relationships with other Domains undefined |
+| BC-3 | -10 | Integration points (Sync API / Async Events) undocumented |
+| BC-4 | -5 | Boundaries mostly clear but with individual gray areas |
 
-#### 4. 物件模型清晰度（15%）
+#### 4. Object Model Clarity (15%)
 
-評估 Domain 的核心概念是否已識別、關係是否清楚、商務邏輯歸屬是否明確。
+Evaluates whether the Domain's core concepts have been identified, whether relationships are clear, and whether business logic ownership is clear.
 
-**關鍵設計決策**：此維度不關心實作模式（Aggregate/UseCase/ViewObject 是 coder 的決策），只關心「商務上有哪些概念、彼此什麼關係、邏輯歸誰管」。
+**Key design decision**: This dimension doesn't care about implementation patterns (Aggregate/UseCase/ViewObject is the coder's decision), only about "what business concepts exist, their relationships, and who owns the logic".
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| OM-1 | -15 | 核心概念未識別 |
-| OM-2 | -10 | 概念之間的關係未記錄 |
-| OM-3 | -8 | 商務邏輯歸屬不明 |
-| OM-4 | -5 | 模型大致清楚但有個別關聯待確認 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| OM-1 | -15 | Core concepts not identified |
+| OM-2 | -10 | Relationships between concepts not recorded |
+| OM-3 | -8 | Business logic ownership unclear |
+| OM-4 | -5 | Model mostly clear but individual associations need confirmation |
 
-#### 5. 跨文件一致性（15%）
+#### 5. Cross-File Consistency (15%)
 
-檢查各知識文件之間的一致性。同一概念在 `ul.md`、`business-rules.md`、`strategic/*.md` 的描述應一致。
+Checks consistency across knowledge files. The same concept should have consistent descriptions in `ul.md`, `business-rules.md`, and `strategic/*.md`.
 
-**為什麼重要**：矛盾的知識比缺失的知識更危險。缺失只是不知道，矛盾會導致不同 Agent 做出相反的決策。
+**Why important**: Contradictory knowledge is more dangerous than missing knowledge. Missing means you don't know; contradictions cause different Agents to make opposite decisions.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| CO-1 | -15 | 發現直接矛盾（同一概念在不同文件描述相反） |
-| CO-2 | -10 | 術語定義在 ul.md 與 strategic/tactical 文件中不一致 |
-| CO-3 | -8 | 狀態機描述與規則定義不匹配 |
-| CO-4 | -5 | 細微不一致（措辭不同但意思可能相同） |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| CO-1 | -15 | Direct contradiction found (same concept described oppositely in different files) |
+| CO-2 | -10 | Terminology definitions inconsistent between ul.md and strategic/tactical files |
+| CO-3 | -8 | State machine description doesn't match rule definitions |
+| CO-4 | -5 | Minor inconsistency (different wording but possibly same meaning) |
 
-#### 6. 知識可操作性（10%）
+#### 6. Knowledge Actionability (10%)
 
-評估知識是否能被下游 Agent 直接使用。Specist 能否據此寫驗收條件、coder 能否據此實作、tester 能否據此設計測試。
+Evaluates whether knowledge can be directly used by downstream Agents. Whether the specist can write acceptance criteria from it, whether the coder can implement from it, whether the tester can design tests from it.
 
-**為什麼權重較低**：這通常是其他維度不足的衍生問題，修正其他維度後自然改善。
+**Why lower weight**: This is usually a derivative problem of other dimension deficiencies — fixing other dimensions naturally improves this.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| AC-1 | -10 | 知識過於抽象，無法據此寫出任何驗收場景 |
-| AC-2 | -8 | 規則缺少具體數值或閾值 |
-| AC-3 | -5 | 知識基本可用但有個別模糊之處 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| AC-1 | -10 | Knowledge too abstract, cannot write any acceptance scenarios from it |
+| AC-2 | -8 | Rules lack specific values or thresholds |
+| AC-3 | -5 | Knowledge basically usable but with individual ambiguities |
 
-#### 7. 文件結構完整度（10%）
+#### 7. Document Structure Completeness (10%)
 
-評估 strategic/tactical 文件是否具備必要區塊。其他維度檢查知識「內容」的品質，此維度檢查「結構」是否齊全。
+Evaluates whether strategic/tactical files have the required sections. Other dimensions check knowledge "content" quality; this dimension checks whether "structure" is complete.
 
-**為什麼需要**：Strategic 文件缺少商務目的，即使規則齊全也不知道 Domain 為何存在；Knowledge Gaps 未記錄，代表不知道自己不知道什麼。
+**Why needed**: A Strategic file missing its business purpose means even with complete rules, you don't know why the Domain exists; unrecorded Knowledge Gaps means you don't know what you don't know.
 
-| 扣分 ID | 分數 | 原因 |
-|---------|------|------|
-| DS-1 | -10 | `strategic/{Domain}.md` 不存在 |
-| DS-2 | -8 | 商務目的未記錄 |
-| DS-3 | -5 | 商務能力未列舉 |
-| DS-4 | -5 | Knowledge Gaps 未記錄 |
+| Deduction ID | Score | Reason |
+|-------------|-------|--------|
+| DS-1 | -10 | `strategic/{Domain}.md` doesn't exist |
+| DS-2 | -8 | Business purpose not recorded |
+| DS-3 | -5 | Business capabilities not listed |
+| DS-4 | -5 | Knowledge Gaps not recorded |
 
-### 計算範例
+### Calculation Example
 
 ```
-知識盤點：SolarProject Domain
+Knowledge inventory: SolarProject Domain
 
-- 術語完整度: 80%（TE-3: SolarProject 缺少具體範例）
-- 規則覆蓋度: 52%（RC-2: 案場狀態機未定義, RC-6: 與 Accounting 的 CD 規則未識別）
-- 領域邊界清晰度: 70%（BC-3: 與 Accounting Domain 的整合點未文件化）
-- 物件模型清晰度: 70%（OM-2: SolarProject 與 Contract 的關係未記錄）
-- 跨文件一致性: 85%（CO-4: ul.md 用「案場」但 strategic 用「太陽能專案」）
-- 知識可操作性: 90%（AC-3: 租金計算的小數點進位規則未明確）
-- 文件結構完整度: 85%（DS-3: 商務能力未列舉）
+- Terminology Completeness: 80% (TE-3: SolarProject lacks concrete examples)
+- Rule Coverage: 52% (RC-2: Site state machine undefined, RC-6: CD rules with Accounting not identified)
+- Domain Boundary Clarity: 70% (BC-3: Integration points with Accounting Domain undocumented)
+- Object Model Clarity: 70% (OM-2: Relationship between SolarProject and Contract not recorded)
+- Cross-File Consistency: 85% (CO-4: ul.md uses "site" but strategic uses "solar project")
+- Knowledge Actionability: 90% (AC-3: Rent calculation decimal rounding rules unclear)
+- Document Structure Completeness: 85% (DS-3: Business capabilities not listed)
 
-加權總分：
+Weighted total:
 80×0.10 + 52×0.25 + 70×0.15 + 70×0.15 + 85×0.15 + 90×0.10 + 85×0.10
 = 8 + 13 + 10.5 + 10.5 + 12.75 + 9 + 8.5
 = 72.25%
 
-結構信心度 72.25% ≥ 70% → 可進入 Phase 3 撰寫提案
-內容信心度 72.25% < 95% → 需在 Phase 4 逐項驗證後才能寫入
+Structure confidence 72.25% ≥ 70% → Can proceed to Phase 3 to write proposal
+Content confidence 72.25% < 95% → Must verify each item in Phase 4 before writing
 ```
 
-### 閘門實作
+### Gate Implementation
 
-由 `.claude/hooks/confidence-gate.sh`（Gate 1）在 Curator 嘗試寫入 `domains/**/*.md` 時檢查。若未經用戶確認，`exit 2` 硬阻擋。確認記錄存於 `.claude/.knowledge-confirmed`，有效期 5 分鐘。
+Handled by `.claude/hooks/confidence-gate.sh` (Gate 1) when the Curator attempts to write to `domains/**/*.md`. If not confirmed by the user, `exit 2` hard blocks. Confirmation records are stored in `.claude/.knowledge-confirmed`, valid for 5 minutes.
 
 ---
 
-## 閘門腳本總覽
+## Gate Script Overview
 
-### 需求信心度閘門
+### Requirement Confidence Gate
 
-`.claude/hooks/validate-agent-call.sh` 處理：
+`.claude/hooks/validate-agent-call.sh` handles:
 
 ```
-specist 進入 specification 階段
+specist enters specification phase
          │
          ▼
-  檢查信心度 >= 95%
+  Check confidence >= 95%
          │
-         ├── Yes → 放行
-         └── No → 硬阻擋，要求澄清
+         ├── Yes → Allow
+         └── No → Hard block, require clarification
 ```
 
-### 知識信心度閘門
+### Knowledge Confidence Gate
 
-`.claude/hooks/confidence-gate.sh`（Gate 1）處理：
+`.claude/hooks/confidence-gate.sh` (Gate 1) handles:
 
 ```
-PreToolUse (Write|Edit) 觸發
+PreToolUse (Write|Edit) triggered
          │
          ▼
-  讀取 file_path
+  Read file_path
          │
-         ├── domains/**/*.md → 檢查是否已經用戶確認（5 分鐘有效期）
+         ├── domains/**/*.md → Check if user has confirmed (5-minute validity)
          │       │
-         │       ├── 已確認 → 放行
-         │       └── 未確認 → exit 2 硬阻擋
+         │       ├── Confirmed → Allow
+         │       └── Not confirmed → exit 2 hard block
          │
-         └── 其他 → 放行
+         └── Other → Allow
 ```
 
-> **備註**：`confidence-gate.sh` 還包含 Gate 2（調查前置檢查），那是一個行為閘門而非信心度機制，詳見 [Debug Tips 工作流程](debug-tips-workflow.md)。
+> **Note**: `confidence-gate.sh` also includes Gate 2 (investigation prerequisite check), which is a behavioral gate rather than a confidence mechanism — see [Debug Tips Workflow](debug-tips-workflow.md) for details.
