@@ -1,31 +1,31 @@
-# Fix 任務工作流程
+# Fix Task Workflow
 
-> Fix 任務用於修復 Bug，採用簡化流程，重點在於快速定位問題並修復。
+> Fix tasks are used to fix bugs, using a simplified workflow focused on quickly locating and resolving issues.
 
-## 概述
+## Overview
 
-Fix 任務與 Feature 任務的差異：
+Differences between Fix and Feature tasks:
 
-| 項目 | Feature | Fix |
+| Item | Feature | Fix |
 |------|---------|-----|
-| 流程 | requirement → specification → testing → development → review → gate | requirement → testing → development → review → gate |
-| 目標 | 實現新功能 | 修復現有問題 |
-| 信心度門檻 | 90% | 80%（快速進入修復） |
-| 調查工具 | 無 | 14 個 Discovery Source 流程 |
+| Workflow | requirement → specification → testing → development → review → gate | requirement → testing → development → review → gate |
+| Goal | Implement new features | Fix existing issues |
+| Confidence threshold | 90% | 80% (quick entry to fix) |
+| Investigation tools | None | 14 Discovery Source workflows |
 
-## 啟動 Fix 任務
+## Starting a Fix Task
 
 ```bash
-/fix {project_id}, {問題描述}
+/fix {project_id}, {issue description}
 ```
 
-**範例**：
+**Examples**:
 ```bash
-/fix sf_project, 發票金額顯示 NaN
-/fix core_web, 登入頁面在 Safari 無法顯示
+/fix sf_project, Invoice amount shows NaN
+/fix core_web, Login page doesn't render on Safari
 ```
 
-## Fix 階段流程
+## Fix Phase Workflow
 
 ```
 requirement → testing → development → review → gate
@@ -33,167 +33,167 @@ requirement → testing → development → review → gate
  specist     tester      coder    reviewers  gatekeeper
 ```
 
-### 1. Requirement 階段（Specist）
+### 1. Requirement Phase (Specist)
 
-Specist 負責：
-1. **識別 Discovery Source (Dx)** - 根據問題描述判斷屬於哪個 Dx
-2. **執行調查流程** - 依照對應 Dx 的 Tool 流程調查
-3. **確認 Affected Layer** - 確定問題位於哪個架構層
-4. **達成信心度** - 需達 80% 以上才進入下一階段
+Specist is responsible for:
+1. **Identifying Discovery Source (Dx)** — Determine which Dx based on the issue description
+2. **Executing investigation workflow** — Follow the corresponding Dx's tool workflow
+3. **Confirming Affected Layer** — Determine which architecture layer the issue resides in
+4. **Reaching confidence** — Must reach 80% or above to proceed to the next phase
 
-### 2. Testing 階段（Tester）
+### 2. Testing Phase (Tester)
 
-Tester 負責：
-1. **撰寫失敗測試** - 根據問題描述撰寫預期失敗的測試
-2. **確認測試紅燈** - 測試必須先失敗，證明問題存在
-3. **準備驗收標準** - 定義修復後的預期行為
+Tester is responsible for:
+1. **Writing failing tests** — Write tests expected to fail based on the issue description
+2. **Confirming red tests** — Tests must fail first, proving the issue exists
+3. **Preparing acceptance criteria** — Define expected behavior after the fix
 
-### 3. Development 階段（Coder）
+### 3. Development Phase (Coder)
 
-Coder 負責：
-1. **修復問題** - 根據調查結果修復程式碼
-2. **測試綠燈** - 確認測試通過
-3. **回歸測試** - 確認沒有影響其他功能
+Coder is responsible for:
+1. **Fixing the issue** — Fix the code based on investigation results
+2. **Green tests** — Confirm tests pass
+3. **Regression testing** — Confirm no other features are affected
 
-### 4. Review 階段（Reviewers）
+### 4. Review Phase (Reviewers)
 
-- **Risk Reviewer**：檢查安全/效能/風險
-- **Style Reviewer**：檢查程式碼風格（Refactor 任務才需要）
+- **Risk Reviewer**: Checks security/performance/risk
+- **Style Reviewer**: Checks code style (only required for Refactor tasks)
 
-### 5. Gate 階段（Gatekeeper）
+### 5. Gate Phase (Gatekeeper)
 
-Gatekeeper 負責：
-1. **最終品質確認**
-2. **生成報告**
-3. **知識更新建議**
+Gatekeeper is responsible for:
+1. **Final quality confirmation**
+2. **Generating reports**
+3. **Knowledge update suggestions**
 
-## Discovery Source (Dx) 調查流程
+## Discovery Source (Dx) Investigation Workflows
 
-### 流程符號說明
+### Flow Symbol Legend
 
-| 符號 | 說明 |
-|------|------|
-| `→` | 下一步 |
-| `(?) 修復` | 如果釐清（信心度 ≥95%）則修復 |
-| `/` | 否則繼續下一步 |
-| `詢問` | 需要人類確認才能執行 |
-| `分支(...)` | 根據情況選擇 |
-| `返回人類` | 信心度不足，回報調查結果 |
+| Symbol | Description |
+|--------|-------------|
+| `→` | Next step |
+| `(?) fix` | If clarified (confidence ≥ 95%) then fix |
+| `/` | Otherwise continue to next step |
+| `ask` | Requires human confirmation before executing |
+| `branch(...)` | Choose path based on situation |
+| `return to human` | Insufficient confidence, report investigation results |
 
 ### UI Profile
 
-| Dx | 名稱 | 流程 |
+| Dx | Name | Flow |
 |----|------|------|
-| D1 | 頁面顯示錯誤（View Layer） | Browser → Read Code → (?) 修復 / Git History → (?) 修復 / 返回人類 |
-| D2 | 頁面顯示錯誤（資料相關） | Browser → Read Code → (?) 修復 / Server Log → (?) 修復 / Rails Runner → (?) 修復 / Domain Context → (?) 修復 / 詢問 Migrate → Local Debug → (?) 修復 / Git History → (?) 修復 / 返回人類 |
-| D3 | 頁面流程錯誤 | Browser → Read Spec → Read Code → (?) 修復 / Server Log → Domain Context → (?) 修復 / Git History → (?) 修復 / 返回人類 |
-| D19 | 跨瀏覽器/裝置問題 | Browser(問題環境) → Browser(對照) → Read Code → (?) 修復 / Git History → (?) 修復 / 返回人類 |
+| D1 | Page display error (View Layer) | Browser → Read Code → (?) fix / Git History → (?) fix / return to human |
+| D2 | Page display error (data-related) | Browser → Read Code → (?) fix / Server Log → (?) fix / Rails Runner → (?) fix / Domain Context → (?) fix / ask Migrate → Local Debug → (?) fix / Git History → (?) fix / return to human |
+| D3 | Page flow error | Browser → Read Spec → Read Code → (?) fix / Server Log → Domain Context → (?) fix / Git History → (?) fix / return to human |
+| D19 | Cross-browser/device issue | Browser(problem env) → Browser(reference) → Read Code → (?) fix / Git History → (?) fix / return to human |
 
 ### Data Profile
 
-| Dx | 名稱 | 流程 |
+| Dx | Name | Flow |
 |----|------|------|
-| D4 | 資料面錯誤 | Read Code → (?) 修復 / Rails Runner → Server Log → (?) 修復 / Domain Context → (?) 修復 / Migrate → Local 並發測試 → (?) 修復 / 返回人類 |
-| D14 | 資料重複/遺失 | Read Code → (?) 修復 / Rails Runner → (?) 修復 / Server Log → (?) 修復 / Domain Context → RDS/Redis Log → (?) 修復 / Migrate → Local 並發測試 → (?) 修復 / 返回人類 |
+| D4 | Data error | Read Code → (?) fix / Rails Runner → Server Log → (?) fix / Domain Context → (?) fix / Migrate → Local concurrency test → (?) fix / return to human |
+| D14 | Data duplication/loss | Read Code → (?) fix / Rails Runner → (?) fix / Server Log → (?) fix / Domain Context → RDS/Redis Log → (?) fix / Migrate → Local concurrency test → (?) fix / return to human |
 
 ### Worker Profile
 
-| Dx | 名稱 | 流程 |
+| Dx | Name | Flow |
 |----|------|------|
-| D5 | 佇列/排程錯誤（資料相關） | App Status → Error Tracking → Read Code → (?) 修復 / Rails Runner → (?) 修復 / Server Log → (?) 修復 / Domain Context → (?) 修復 / Migrate → Local Sidekiq → (?) 修復 / Git History → (?) 修復 / 返回人類 |
-| D6 | 佇列/排程錯誤（程式問題） | App Status → Error Tracking → Read Code → (?) 修復 / Local Sidekiq → Server Log → (?) 修復 / Git History → (?) 修復 / 返回人類 |
+| D5 | Queue/schedule error (data-related) | App Status → Error Tracking → Read Code → (?) fix / Rails Runner → (?) fix / Server Log → (?) fix / Domain Context → (?) fix / Migrate → Local Sidekiq → (?) fix / Git History → (?) fix / return to human |
+| D6 | Queue/schedule error (code issue) | App Status → Error Tracking → Read Code → (?) fix / Local Sidekiq → Server Log → (?) fix / Git History → (?) fix / return to human |
 
 ### Performance Profile
 
-| Dx | 名稱 | 流程 |
+| Dx | Name | Flow |
 |----|------|------|
-| D8 | APM 效能警報 | APM → Read Code → (?) 修復 / 分支(DB: RDS Log / Ruby: 分析邏輯 / External: Server Log / Memory: 分析邏輯) → (?) 修復 / Git History → (?) 修復 / 返回人類 |
-| D9 | 用戶回報慢 | Browser → 分支(前端慢: DevTools / 後端慢: APM / 無法重現: Server Log) → Read Code → Local Benchmark → (?) 修復 / 返回人類 |
+| D8 | APM performance alert | APM → Read Code → (?) fix / branch(DB: RDS Log / Ruby: analyze logic / External: Server Log / Memory: analyze logic) → (?) fix / Git History → (?) fix / return to human |
+| D9 | User-reported slowness | Browser → branch(frontend slow: DevTools / backend slow: APM / cannot reproduce: Server Log) → Read Code → Local Benchmark → (?) fix / return to human |
 
 ### Integration Profile
 
-| Dx | 名稱 | 流程 |
+| Dx | Name | Flow |
 |----|------|------|
-| D10 | 外部服務錯誤 | Error Tracking → Server Log → Read Code → (?) 修復 / 分支(Request 錯誤 / Response 處理錯誤 / 間歇性: Script 測試連線) → (?) 修復 / Domain Context → (?) 修復 / 返回人類 |
+| D10 | External service error | Error Tracking → Server Log → Read Code → (?) fix / branch(Request error / Response handling error / Intermittent: Script test connection) → (?) fix / Domain Context → (?) fix / return to human |
 
 ### Alert Profile
 
-| Dx | 名稱 | 流程 |
+| Dx | Name | Flow |
 |----|------|------|
-| D7 | Log 紀錄錯誤 | Server Log → Error Tracking → Read Code → (?) 修復 / Rails Runner → (?) 修復 / Git History → Read 最近部署 → (?) 修復 / 返回人類 |
+| D7 | Log record error | Server Log → Error Tracking → Read Code → (?) fix / Rails Runner → (?) fix / Git History → Read recent deployment → (?) fix / return to human |
 
 ### Security Profile
 
-| Dx | 名稱 | 流程 |
+| Dx | Name | Flow |
 |----|------|------|
-| D12 | 權限錯誤 | Read Code → Read Feature Spec → (?) 修復 / Rails Runner → (?) 修復 / Domain Context → (?) 修復 / 返回人類 |
-| D13 | 安全掃描 | Read Code → 分支(Dependency: 更新需人類確認 / Code: 定位漏洞) → (?) 修復 / 返回人類 |
+| D12 | Permission error | Read Code → Read Feature Spec → (?) fix / Rails Runner → (?) fix / Domain Context → (?) fix / return to human |
+| D13 | Security scan | Read Code → branch(Dependency: update requires human confirmation / Code: locate vulnerability) → (?) fix / return to human |
 
-## 工具分類
+## Tool Categories
 
-### Query Tools（只讀取）
+### Query Tools (Read-only)
 
-| 工具 | 說明 |
-|------|------|
-| browser | Chrome 瀏覽器操作 |
-| aws_connect.rails_runner | 遠端 Rails Runner（只可查詢） |
-| aws_connect.server_log | 遠端 Log 查詢 |
-| aws_connect.app_status | Sidekiq/Redis 狀態 |
-| aws_connect.rds_log | RDS/Redis Log |
-| aws_connect.script | 上傳執行腳本（用完刪除） |
-| read.local_codebase | 讀取程式碼 |
-| read.domain_context | 讀取 Domain 文件 |
-| read.git_history | 讀取 Git 歷史 |
-| error_tracking | Sentry/Rollbar（人工操作） |
-| apm | NewRelic/Datadog（人工操作） |
+| Tool | Description |
+|------|-------------|
+| browser | Chrome browser operations |
+| aws_connect.rails_runner | Remote Rails Runner (query only) |
+| aws_connect.server_log | Remote log queries |
+| aws_connect.app_status | Sidekiq/Redis status |
+| aws_connect.rds_log | RDS/Redis logs |
+| aws_connect.script | Upload and execute scripts (deleted after use) |
+| read.local_codebase | Read source code |
+| read.domain_context | Read Domain documents |
+| read.git_history | Read Git history |
+| error_tracking | Sentry/Rollbar (manual operation) |
+| apm | NewRelic/Datadog (manual operation) |
 
-### Command Tools（可改變狀態，僅限 Local/Staging）
+### Command Tools (Can change state, Local/Staging only)
 
-| 工具 | 說明 |
-|------|------|
-| write | 修改程式碼 |
-| bash.rspec | 執行測試 |
-| bash.rails_runner | 本地 Rails Runner |
-| bash.sidekiq_local | 本地 Sidekiq |
-| bash.benchmark | 本地效能測試（待開發 Skill） |
-| migrate | 資料遷移（Production → Local） |
-| git_command | Git 寫入操作 |
-| debugger | 除錯工具 |
+| Tool | Description |
+|------|-------------|
+| write | Modify code |
+| bash.rspec | Run tests |
+| bash.rails_runner | Local Rails Runner |
+| bash.sidekiq_local | Local Sidekiq |
+| bash.benchmark | Local performance testing (Skill in development) |
+| migrate | Data migration (Production → Local) |
+| git_command | Git write operations |
+| debugger | Debugging tools |
 
-## 核心原則
+## Core Principles
 
-1. **Production 資料不可變** - 所有 Command 操作僅限 Local/Staging
-2. **Rails Runner 必須在 Read Code 之後** - 沒看過 code 怎麼知道要 run 什麼
-3. **Git History 放到最後一站** - 用盡所有 debug 方式才質疑 git 版本
-4. **信心度 ≥95% 才可修復** - 不確定時返回人類確認
+1. **Production data is immutable** — All Command operations are limited to Local/Staging
+2. **Rails Runner must come after Read Code** — You can't know what to run without reading the code first
+3. **Git History is the last resort** — Exhaust all debugging methods before questioning git versions
+4. **Confidence ≥ 95% before fixing** — When uncertain, return to human for confirmation
 
-## 返回人類時需提供
+## Information Required When Returning to Human
 
-當信心度 <95% 需要返回人類時，必須提供：
-1. 目前調查結果
-2. 已使用的工具和發現
-3. 已排除的可能性
-4. 無法釐清的具體問題
-5. 建議的下一步
+When confidence < 95% and returning to human, must provide:
+1. Current investigation results
+2. Tools used and findings
+3. Possibilities already ruled out
+4. Specific issues that couldn't be clarified
+5. Suggested next steps
 
-## Review 後修復
+## Post-Review Fixes
 
-當 Review 發現問題時，可選擇修復而非直接進入 Gate：
+When Review finds issues, you can choose to fix rather than going directly to Gate:
 
 ```bash
-/fix-critical   # 修復 Critical 問題
-/fix-high       # 修復 Critical + High 問題
-/fix-all        # 修復所有問題（含 suggestions）
+/fix-critical   # Fix Critical issues
+/fix-high       # Fix Critical + High issues
+/fix-all        # Fix all issues (including suggestions)
 ```
 
-修復流程（TDD）：
+Fix workflow (TDD):
 ```
-review → testing（補測試）→ development（修復）→ review → gate
+review → testing (add tests) → development (fix) → review → gate
 ```
 
-## 相關文件
+## Related Files
 
-- `fix-profiles.yml` - Profile 定義與 Affected Layer
-- `fix-tools.yml` - 工具清單（Query/Command 分類）
-- `fix-discovery-flows.yml` - 14 個 Discovery Source 調查流程
-- `registry.yml` - 驗收配置註冊表
+- `fix-profiles.yml` — Profile definitions and Affected Layers
+- `fix-tools.yml` — Tool list (Query/Command categories)
+- `fix-discovery-flows.yml` — 14 Discovery Source investigation workflows
+- `registry.yml` — Acceptance configuration registry
