@@ -1,38 +1,38 @@
-# Review 後修復流程設計
+# Post-Review Fix Workflow Design
 
-本文檔描述當 Review 階段發現問題時，如何透過 TDD 流程進行修復，以及 Agent 之間的知識傳遞機制。
-
----
-
-## 目錄
-
-1. [設計背景](#設計背景)
-2. [流程概覽](#流程概覽)
-3. [Commands 定義](#commands-定義)
-4. [reviewFindings 資料結構](#reviewfindings-資料結構)
-5. [Agent 知識傳遞](#agent-知識傳遞)
-6. [實作範例](#實作範例)
+This document describes how to perform fixes through a TDD workflow when the Review phase discovers issues, and the knowledge transfer mechanism between Agents.
 
 ---
 
-## 設計背景
+## Table of Contents
 
-### 問題
-
-原本的流程在 Review 階段完成後，只有 `/continue` 一個選項進入 Gate 階段。但 Review 可能發現需要修復的問題，原流程沒有處理這個分支。
-
-### 目標
-
-1. 提供多種修復選項（依問題嚴重程度）
-2. 使用 TDD 流程修復（先補測試，再實作）
-3. 透過任務 JSON 傳遞知識，避免 Agent 間的知識損耗
+1. [Design Background](#design-background)
+2. [Workflow Overview](#workflow-overview)
+3. [Commands Definition](#commands-definition)
+4. [reviewFindings Data Structure](#reviewfindings-data-structure)
+5. [Agent Knowledge Transfer](#agent-knowledge-transfer)
+6. [Implementation Example](#implementation-example)
 
 ---
 
-## 流程概覽
+## Design Background
+
+### Problem
+
+The original workflow had only one option after the Review phase was completed: `/continue` to enter the Gate phase. However, Review may discover issues that need fixing, and the original workflow didn't handle this branch.
+
+### Goals
+
+1. Provide multiple fix options (by issue severity)
+2. Use TDD workflow for fixes (write tests first, then implement)
+3. Transfer knowledge through task JSON to avoid knowledge loss between Agents
+
+---
+
+## Workflow Overview
 
 ```
-                    review 完成
+                    review completed
                          │
          ┌───────────────┼───────────────┐
          │               │               │
@@ -43,90 +43,92 @@
        gate              │               │
                          ▼               ▼
                   ┌────────────────────────┐
-                  │  更新 fixScope         │
-                  │  回到 testing 階段     │
+                  │  Update fixScope       │
+                  │  Return to testing     │
                   └──────────┬─────────────┘
                              │
                              ▼
                   ┌────────────────────────┐
-                  │  tester 補測試         │
-                  │  讀取 reviewFindings   │
-                  │  生成失敗測試（紅燈）   │
+                  │  tester adds tests     │
+                  │  Reads reviewFindings  │
+                  │  Generates failing     │
+                  │  tests (red)           │
                   └──────────┬─────────────┘
                              │
                              ▼
                   ┌────────────────────────┐
-                  │  coder 修復            │
-                  │  讀取 reviewFindings   │
-                  │  實作讓測試通過        │
+                  │  coder fixes           │
+                  │  Reads reviewFindings  │
+                  │  Implements to pass    │
+                  │  tests                 │
                   └──────────┬─────────────┘
                              │
                              ▼
                   ┌────────────────────────┐
-                  │  回到 review           │
-                  │  (簡化審查)            │
+                  │  Return to review      │
+                  │  (simplified review)   │
                   └──────────┬─────────────┘
                              │
                              ▼
                            gate
 ```
 
-### 階段說明
+### Phase Description
 
-| 步驟 | 階段狀態 | Agent | 說明 |
-|------|----------|-------|------|
-| 1 | review → testing | - | 設定 fixScope，更新 status |
-| 2 | testing | tester | 讀取 reviewFindings，補充測試 |
-| 3 | development | coder | 讀取 reviewFindings + 測試，修復 |
-| 4 | review | risk-reviewer | 簡化審查（只驗證修復項目）|
-| 5 | gate | gatekeeper | 最終品質把關 |
+| Step | Phase Status | Agent | Description |
+|------|-------------|-------|-------------|
+| 1 | review → testing | - | Set fixScope, update status |
+| 2 | testing | tester | Read reviewFindings, add tests |
+| 3 | development | coder | Read reviewFindings + tests, fix |
+| 4 | review | risk-reviewer | Simplified review (only verify fixed items) |
+| 5 | gate | gatekeeper | Final quality control |
 
 ---
 
-## Commands 定義
+## Commands Definition
 
 ### /fix-critical
 
-修復 severity 為 `critical` 的問題。
+Fixes issues with severity `critical`.
 
-**行為**：
-1. 設定 `context.reviewFindings.fixScope = "critical"`
-2. 更新 `status = "testing"`
-3. 呼叫 tester agent
+**Behavior**:
+1. Set `context.reviewFindings.fixScope = "critical"`
+2. Update `status = "testing"`
+3. Call tester agent
 
-**適用場景**：安全漏洞、資料完整性問題
+**Use case**: Security vulnerabilities, data integrity issues
 
 ---
 
 ### /fix-high
 
-修復 severity 為 `critical` 和 `high` 的問題。
+Fixes issues with severity `critical` and `high`.
 
-**行為**：
-1. 設定 `context.reviewFindings.fixScope = "high"`
-2. 更新 `status = "testing"`
-3. 呼叫 tester agent
+**Behavior**:
+1. Set `context.reviewFindings.fixScope = "high"`
+2. Update `status = "testing"`
+3. Call tester agent
 
-**適用場景**：包含效能問題、N+1 查詢
+**Use case**: Includes performance issues, N+1 queries
 
 ---
 
 ### /fix-all
 
-修復所有 severity 的問題（包含 suggestions）。
+Fixes issues of all severities (including suggestions).
 
-**行為**：
-1. 設定 `context.reviewFindings.fixScope = "all"`
-2. 更新 `status = "testing"`
-3. 呼叫 tester agent
+**Behavior**:
+1. Set `context.reviewFindings.fixScope = "all"`
+2. Update `status = "testing"`
+3. Call tester agent
 
-**適用場景**：全面改善代碼品質
+**Use case**: Comprehensive code quality improvement
 
 ---
 
-## reviewFindings 資料結構
+## reviewFindings Data Structure
 
-### 完整結構
+### Complete Structure
 
 ```json
 {
@@ -144,9 +146,9 @@
             "category": "readability",
             "file": "repositories/accounts_receivable.rb",
             "line": "71-88",
-            "title": "複雜條件邏輯",
-            "description": "should_clear_invoice_number? 邏輯較複雜",
-            "suggestion": "可提取部分子條件為命名方法",
+            "title": "Complex conditional logic",
+            "description": "should_clear_invoice_number? logic is complex",
+            "suggestion": "Extract partial sub-conditions as named methods",
             "example": null
           }
         ]
@@ -160,12 +162,12 @@
             "category": "security",
             "file": "use_cases/void_current_invoice.rb",
             "line": "7-14",
-            "title": "缺乏授權控制",
-            "description": "任何人知道 serial 就能作廢發票",
-            "impact": "水平/垂直越權風險",
-            "suggestion": "加入 current_user 參數，檢查權限",
+            "title": "Missing authorization control",
+            "description": "Anyone who knows the serial can void an invoice",
+            "impact": "Horizontal/vertical privilege escalation risk",
+            "suggestion": "Add current_user parameter, check permissions",
             "example": "yield authorize_user(receivable, current_user)",
-            "testHint": "測試不同角色、不同專案的權限"
+            "testHint": "Test different roles, different projects' permissions"
           },
           {
             "id": "SEC-002",
@@ -173,11 +175,11 @@
             "category": "concurrency",
             "file": "use_cases/void_current_invoice.rb",
             "line": "7-14",
-            "title": "併發控制不足",
-            "description": "可能產生 Race Condition",
-            "suggestion": "加入 Redis Lock 或 Optimistic Locking",
+            "title": "Insufficient concurrency control",
+            "description": "Possible Race Condition",
+            "suggestion": "Add Redis Lock or Optimistic Locking",
             "example": "with_redis_lock(lock_key) { ... }",
-            "testHint": "使用 Thread 模擬同時作廢"
+            "testHint": "Use Thread to simulate concurrent voiding"
           },
           {
             "id": "SEC-003",
@@ -185,11 +187,11 @@
             "category": "validation",
             "file": "use_cases/void_current_invoice.rb",
             "line": "8",
-            "title": "輸入驗證缺失",
-            "description": "void_reason 未驗證",
-            "suggestion": "驗證不為空、長度限制 5-500 字元",
-            "example": "return Failure('作廢原因不可為空') if void_reason.blank?",
-            "testHint": "測試空值、超長字串、特殊字元"
+            "title": "Missing input validation",
+            "description": "void_reason is not validated",
+            "suggestion": "Validate not empty, length limit 5-500 characters",
+            "example": "return Failure('Void reason cannot be empty') if void_reason.blank?",
+            "testHint": "Test empty values, overly long strings, special characters"
           }
         ]
       }
@@ -198,92 +200,92 @@
 }
 ```
 
-### 欄位說明
+### Field Descriptions
 
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `fixScope` | string | 修復範圍：`null`/`critical`/`high`/`all` |
-| `severity` | string | 嚴重程度：`critical`/`high`/`medium`/`low`/`suggestion` |
-| `category` | string | 問題類別：`security`/`concurrency`/`validation`/`performance`/`readability` |
-| `file` | string | 問題所在檔案（相對於 domain） |
-| `line` | string | 問題所在行數 |
-| `title` | string | 問題標題（簡短） |
-| `description` | string | 問題描述（詳細） |
-| `impact` | string | 影響說明（optional） |
-| `suggestion` | string | 修復建議 |
-| `example` | string | 程式碼範例（optional） |
-| `testHint` | string | 測試建議（給 tester 用）|
+| Field | Type | Description |
+|-------|------|-------------|
+| `fixScope` | string | Fix scope: `null`/`critical`/`high`/`all` |
+| `severity` | string | Severity: `critical`/`high`/`medium`/`low`/`suggestion` |
+| `category` | string | Issue category: `security`/`concurrency`/`validation`/`performance`/`readability` |
+| `file` | string | File where issue is located (relative to domain) |
+| `line` | string | Line number where issue is located |
+| `title` | string | Issue title (brief) |
+| `description` | string | Issue description (detailed) |
+| `impact` | string | Impact description (optional) |
+| `suggestion` | string | Fix suggestion |
+| `example` | string | Code example (optional) |
+| `testHint` | string | Test suggestion (for tester use) |
 
-### Severity 篩選邏輯
+### Severity Filtering Logic
 
-| fixScope | 包含的 severity |
-|----------|-----------------|
+| fixScope | Included severities |
+|----------|-------------------|
 | `critical` | critical |
 | `high` | critical, high |
 | `all` | critical, high, medium, low, suggestion |
 
 ---
 
-## Agent 知識傳遞
+## Agent Knowledge Transfer
 
 ### Tester Agent
 
-當進入 testing 階段（修復模式）時，tester 的 prompt：
+When entering the testing phase (fix mode), the tester's prompt:
 
 ```
-專案：{project}
-任務：補充測試案例以覆蓋 review 發現的問題
-任務 JSON：{task_json_path}
-模式：fix-review
+Project: {project}
+Task: Add test cases to cover issues found in review
+Task JSON: {task_json_path}
+Mode: fix-review
 
-請執行：
-1. 讀取任務 JSON 的 context.reviewFindings
-2. 根據 fixScope 篩選要處理的問題
-3. 為每個問題生成測試案例
-   - 使用 testHint 作為測試設計參考
-   - 測試應該先失敗（紅燈）
-4. 執行測試確認失敗
-5. 更新 context.testFiles 加入新測試檔案
+Please execute:
+1. Read context.reviewFindings from the task JSON
+2. Filter issues to handle based on fixScope
+3. Generate test cases for each issue
+   - Use testHint as a test design reference
+   - Tests should fail first (red)
+4. Run tests to confirm failure
+5. Update context.testFiles to include new test files
 
-輸出格式請遵循 tester agent 的標準格式。
+Output format should follow the tester agent's standard format.
 ```
 
 ### Coder Agent
 
-當進入 development 階段（修復模式）時，coder 的 prompt：
+When entering the development phase (fix mode), the coder's prompt:
 
 ```
-專案：{project}
-任務：修復 review 發現的問題，讓測試通過
-任務 JSON：{task_json_path}
-模式：fix-review
+Project: {project}
+Task: Fix issues found in review, make tests pass
+Task JSON: {task_json_path}
+Mode: fix-review
 
-請執行：
-1. 讀取任務 JSON 的 context.reviewFindings
-2. 讀取 context.testFiles 了解測試案例
-3. 根據 fixScope 篩選要修復的問題
-4. 依序修復每個問題
-   - 使用 suggestion 和 example 作為實作參考
-   - 確保測試通過
-5. 更新 context.modifiedFiles
+Please execute:
+1. Read context.reviewFindings from the task JSON
+2. Read context.testFiles to understand test cases
+3. Filter issues to fix based on fixScope
+4. Fix each issue sequentially
+   - Use suggestion and example as implementation references
+   - Ensure tests pass
+5. Update context.modifiedFiles
 
-輸出格式請遵循 coder agent 的標準格式。
+Output format should follow the coder agent's standard format.
 ```
 
-### 知識流向圖
+### Knowledge Flow Diagram
 
 ```
 ┌─────────────────┐
 │ risk-reviewer   │
 │ style-reviewer  │
 └────────┬────────┘
-         │ 寫入 reviewFindings
+         │ Write reviewFindings
          ▼
 ┌─────────────────┐
 │ Task JSON       │
 │ (context)       │
 └────────┬────────┘
-         │ 讀取 reviewFindings
+         │ Read reviewFindings
     ┌────┴────┐
     ▼         ▼
 ┌───────┐ ┌───────┐
@@ -293,11 +295,11 @@
 
 ---
 
-## 實作範例
+## Implementation Example
 
-### 範例：修復授權控制問題
+### Example: Fixing Authorization Control Issue
 
-#### 1. reviewFindings 內容
+#### 1. reviewFindings Content
 
 ```json
 {
@@ -306,60 +308,60 @@
   "category": "security",
   "file": "use_cases/void_current_invoice.rb",
   "line": "7-14",
-  "title": "缺乏授權控制",
-  "description": "任何人知道 serial 就能作廢發票",
-  "suggestion": "加入 current_user 參數，檢查權限",
+  "title": "Missing authorization control",
+  "description": "Anyone who knows the serial can void an invoice",
+  "suggestion": "Add current_user parameter, check permissions",
   "example": "yield authorize_user(receivable, current_user)",
-  "testHint": "測試不同角色、不同專案的權限"
+  "testHint": "Test different roles, different projects' permissions"
 }
 ```
 
-#### 2. tester 生成的測試
+#### 2. Tests Generated by Tester
 
 ```ruby
 # spec/domains/accounting/accounts_receivable/use_cases/void_current_invoice_spec.rb
 
-describe 'Scenario: 授權控制 (SEC-001)' do
-  describe '當用戶沒有專案權限' do
+describe 'Scenario: Authorization control (SEC-001)' do
+  describe 'When user lacks project permission' do
     let(:other_project_user) { create(:user, :accountant) }
 
-    it '返回失敗結果' do
+    it 'returns failure result' do
       result = use_case.call(
         serial: 'AR-2025-001',
-        void_reason: '測試作廢',
+        void_reason: 'Test void',
         current_user: other_project_user
       )
 
       expect(result).to be_failure
-      expect(result.failure).to eq('無權限操作此專案')
+      expect(result.failure).to eq('No permission to operate on this project')
     end
   end
 
-  describe '當用戶角色不允許作廢' do
+  describe 'When user role does not allow voiding' do
     let(:viewer_user) { create(:user, :viewer) }
 
-    it '返回失敗結果' do
+    it 'returns failure result' do
       result = use_case.call(
         serial: 'AR-2025-001',
-        void_reason: '測試作廢',
+        void_reason: 'Test void',
         current_user: viewer_user
       )
 
       expect(result).to be_failure
-      expect(result.failure).to eq('無權限作廢發票')
+      expect(result.failure).to eq('No permission to void invoices')
     end
   end
 end
 ```
 
-#### 3. coder 實作的修復
+#### 3. Fix Implemented by Coder
 
 ```ruby
 # domains/accounting/accounts_receivable/use_cases/void_current_invoice.rb
 
 def steps(serial:, void_reason:, current_user:)
   receivable = yield retrieve_receivable(serial: serial)
-  yield authorize_user(receivable: receivable, user: current_user)  # 新增
+  yield authorize_user(receivable: receivable, user: current_user)  # Added
   yield validate_input(void_reason: void_reason)
   yield check_erp_settlement(serial: serial)
   # ...
@@ -368,12 +370,12 @@ end
 private
 
 def authorize_user(receivable:, user:)
-  # 檢查專案權限
+  # Check project permission
   project = Project.find_by(serial: receivable.project_serial)
-  return Failure('無權限操作此專案') unless user.can_manage?(project)
+  return Failure('No permission to operate on this project') unless user.can_manage?(project)
 
-  # 檢查角色權限
-  return Failure('無權限作廢發票') unless user.has_role?(:accountant, :admin)
+  # Check role permission
+  return Failure('No permission to void invoices') unless user.has_role?(:accountant, :admin)
 
   Success()
 end
@@ -381,29 +383,29 @@ end
 
 ---
 
-## 設計原則
+## Design Principles
 
-### 1. 單一資訊來源
+### 1. Single Source of Truth
 
-reviewFindings 是唯一的知識傳遞媒介，所有 Agent 都從 Task JSON 讀取。
+reviewFindings is the sole knowledge transfer medium — all Agents read from the Task JSON.
 
-### 2. TDD 流程
+### 2. TDD Workflow
 
-修復必須先有測試（紅燈），再實作（綠燈），確保修復品質。
+Fixes must have tests first (red), then implementation (green), ensuring fix quality.
 
-### 3. 可追蹤性
+### 3. Traceability
 
-每個問題都有唯一 ID（如 SEC-001），可追蹤修復狀態。
+Each issue has a unique ID (e.g., SEC-001), enabling fix status tracking.
 
-### 4. 漸進式修復
+### 4. Incremental Fixes
 
-透過 fixScope 控制修復範圍，可選擇只修復 Critical 或全部修復。
+Fix scope is controlled via fixScope, allowing you to choose to fix only Critical issues or fix everything.
 
 ---
 
-## 相關文件
+## Related Files
 
-- [continue.md](.claude/commands/continue.md) - 階段轉移邏輯
-- [tester.md](.claude/agents/tester.md) - Tester Agent 定義
-- [coder.md](.claude/agents/coder.md) - Coder Agent 定義
-- [operation-manual.md](docs/operation-manual.md) - 操作手冊
+- [continue.md](.claude/commands/continue.md) — Phase transition logic
+- [tester.md](.claude/agents/tester.md) — Tester Agent definition
+- [coder.md](.claude/agents/coder.md) — Coder Agent definition
+- [operation-manual.md](docs/operation-manual.md) — Operation manual
