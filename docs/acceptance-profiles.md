@@ -1,13 +1,13 @@
-# 驗收 Profile 指南
+# Acceptance Profile Guide
 
-本文件為驗收 Profile 的索引頁。ATDD Hub 的驗收分為 Feature 與 Fix 兩大類：
+This document serves as the index page for acceptance profiles. ATDD Hub's acceptance is divided into two major categories: Feature and Fix.
 
-| 文件 | 說明 |
-|------|------|
-| [Feature 驗收 Profile](feature-profiles.md) | 4 個 Profile（e2e / integration / calculation / unit）、選擇決策樹 |
-| [Fix 驗收 Profile](fix-profiles.md) | 7 個 Profile、14 個 Discovery Source 調查流程、Affected Layer 對照 |
+| Document | Description |
+|----------|-------------|
+| [Feature Acceptance Profiles](feature-profiles.md) | 4 Profiles (e2e / integration / calculation / unit), selection decision tree |
+| [Fix Acceptance Profiles](fix-profiles.md) | 7 Profiles, 14 Discovery Source investigation workflows, Affected Layer mapping |
 
-機器可讀的完整定義請見：
-- `acceptance/registry.yml` — Feature Profile 配置
-- `acceptance/fix-profiles.yml` — Fix Profile 與 Affected Layer
-- `acceptance/fix-discovery-flows.yml` — 14 個 Discovery Source 調查流程
+Machine-readable complete definitions can be found at:
+- `acceptance/registry.yml` — Feature Profile configuration
+- `acceptance/fix-profiles.yml` — Fix Profiles and Affected Layers
+- `acceptance/fix-discovery-flows.yml` — 14 Discovery Source investigation workflows
