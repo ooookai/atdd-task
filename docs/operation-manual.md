@@ -1,529 +1,531 @@
-# ATDD Hub 操作手冊
+# ATDD Hub Operation Manual
 
-本手冊說明如何使用 ATDD Hub 的 Command-Driven 工作流程進行專案任務開發。
-
----
-
-## 目錄
-
-1. [快速開始](#快速開始)
-2. [任務類型](#任務類型)
-3. [Epic 管理](#epic-管理)
-4. [工作流程詳解](#工作流程詳解)
-5. [6 Agent 架構](#6-agent-架構)
-6. [Commands 參考](#commands-參考)
-7. [Metrics 追蹤](#metrics-追蹤)
-8. [常見問題](#常見問題)
+This manual explains how to use the ATDD Hub's Command-Driven workflow for project task development.
 
 ---
 
-## 快速開始
+## Table of Contents
 
-### 啟動新任務
+1. [Quick Start](#quick-start)
+2. [Task Types](#task-types)
+3. [Epic Management](#epic-management)
+4. [Workflow Details](#workflow-details)
+5. [6 Agent Architecture](#6-agent-architecture)
+6. [Commands Reference](#commands-reference)
+7. [Metrics Tracking](#metrics-tracking)
+8. [FAQ](#faq)
 
-使用 Slash Command 啟動任務：
+---
+
+## Quick Start
+
+### Starting a New Task
+
+Use a Slash Command to start a task:
 
 ```
-/feature sf_project, 專案審核流程
+/feature sf_project, Project Approval Workflow
 ```
 
-系統會自動：
-1. 建立任務記錄（JSON + Kanban）
-2. 進入 `requirement` 階段
-3. 呼叫 `specist` Agent 開始需求分析
-4. 詢問你的需求細節
+The system will automatically:
+1. Create a task record (JSON + Kanban)
+2. Enter the `requirement` phase
+3. Call the `specist` Agent to begin requirements analysis
+4. Ask you for requirement details
 
-### 與 AI 對話
+### Conversing with AI
 
-在 `requirement` 階段，你需要回答 specist 的問題，直到信心度達到 95%。
+During the `requirement` phase, you need to answer the specist's questions until the confidence level reaches 95%.
 
-**範例對話**：
+**Example conversation**:
 ```
-specist: 我理解你需要專案審核流程。以下幾點需要確認：
-         1. 審核階段有哪些？（例：初審、複審、終審）
-         2. 誰可以執行審核？
-         3. 審核需要哪些欄位？
+specist: I understand you need a project approval workflow. A few things to confirm:
+         1. What are the approval stages? (e.g., initial review, secondary review, final review)
+         2. Who can perform approvals?
+         3. What fields are needed for approval?
 
-         目前信心度：65%
+         Current confidence: 65%
 
-你: 審核分為「專案經理審核」和「財務審核」兩階段。
-    專案經理可審核所屬專案，財務人員審核金額。
-    需要記錄審核意見和審核時間。
+you: Approval has two stages: "Project Manager Approval" and "Finance Approval".
+     Project managers can approve their own projects, finance staff approves amounts.
+     Need to record approval comments and approval time.
 
-specist: 明白。還有幾個問題：
-         1. 兩階段是否有順序？（必須先專案經理才能財務？）
-         2. 審核不通過後，可以重新送審嗎？
+specist: Understood. A few more questions:
+         1. Is there a required order for the two stages? (Must PM approve before Finance?)
+         2. After rejection, can it be resubmitted for approval?
 
-         目前信心度：82%
+         Current confidence: 82%
 ```
 
-### 繼續下一階段
+### Continuing to the Next Phase
 
-當信心度達標後，輸入：
+When confidence reaches the threshold, enter:
 
 ```
 /continue
 ```
 
-系統會自動進入下一階段並呼叫對應 Agent。
+The system will automatically enter the next phase and call the corresponding Agent.
 
-### 查看進度
+### Checking Progress
 
-隨時輸入：
+Enter at any time:
 
 ```
 /status
 ```
 
-顯示當前任務進度、已完成階段、使用的 Agent。
+Displays current task progress, completed phases, and Agents used.
 
 ---
 
-## 任務類型
+## Task Types
 
-| 類型 | Command | 適用場景 | 完整流程 |
-|------|---------|----------|----------|
-| Feature | `/feature` | 新功能開發 | requirement → specification → testing → development → review → gate |
-| Fix | `/fix` | Bug 修復 | requirement → testing → development → review → gate |
-| Refactor | `/refactor` | 程式碼重構 | requirement → specification → testing → development → review → gate |
-| Test | `/test` | 補充測試 | requirement → testing → gate |
+| Type | Command | Use Case | Full Workflow |
+|------|---------|----------|---------------|
+| Feature | `/feature` | New feature development | requirement → specification → testing → development → review → gate |
+| Fix | `/fix` | Bug fix | requirement → testing → development → review → gate |
+| Refactor | `/refactor` | Code refactoring | requirement → specification → testing → development → review → gate |
+| Test | `/test` | Add tests | requirement → testing → gate |
 
-### 選擇指南
+### Selection Guide
 
-- **新功能**：使用 `/feature`，會有完整的規格設計階段
-- **Bug 修復**：使用 `/fix`，跳過規格設計，快速進入測試和修復
-- **重構**：使用 `/refactor`，著重行為不變的驗證
-- **補充測試**：使用 `/test`，最小流程，只寫測試不改代碼
-- **大型功能**：使用 `/epic`，拆分為多個子任務
+- **New feature**: Use `/feature`, includes a full specification design phase
+- **Bug fix**: Use `/fix`, skips specification design, quickly enters testing and fixing
+- **Refactoring**: Use `/refactor`, focuses on verifying behavior remains unchanged
+- **Adding tests**: Use `/test`, minimal workflow, only writes tests without changing code
+- **Large feature**: Use `/epic`, splits into multiple sub-tasks
 
 ---
 
-## Epic 管理
+## Epic Management
 
-### 什麼是 Epic？
+### What is an Epic?
 
-**Epic** 是大型功能，需要拆分為多個子任務（Feature/Fix/Test）才能完成。
+An **Epic** is a large feature that needs to be split into multiple sub-tasks (Feature/Fix/Test) to complete.
 
-### 何時使用 Epic？
+### When to Use an Epic?
 
-當 Feature 符合以下條件時，建議上升為 Epic：
+When a Feature meets the following conditions, consider elevating it to an Epic:
 
-| 條件 | 閾值 |
-|------|------|
-| 跨 Domain 數量 | ≥ 3 個 |
-| 需要前置調查/清理 | 有 |
-| 預估驗收場景數 | > 15 個 |
-| 無法單次交付完整價值 | 是 |
+| Condition | Threshold |
+|-----------|-----------|
+| Number of Domains involved | ≥ 3 |
+| Requires preliminary investigation/cleanup | Yes |
+| Estimated acceptance scenarios | > 15 |
+| Cannot deliver complete value in a single iteration | Yes |
 
-### Epic 建立流程
+### Epic Creation Flow
 
 ```
-/epic sf_project, 發票折讓體系
+/epic sf_project, Invoice Allowance System
          │
          ▼
 ┌─────────────────────────────────┐
-│ specist: Epic Planning（提案）  │
-│ • 識別涉及的 Domains           │
-│ • 拆分 Phases                   │
-│ • 識別子任務                    │
-│ • 建立依賴關係                  │
+│ specist: Epic Planning (Proposal)│
+│ • Identify involved Domains      │
+│ • Split into Phases              │
+│ • Identify sub-tasks             │
+│ • Establish dependencies         │
 └─────────────────────────────────┘
          │
          ▼
 ┌─────────────────────────────────┐
-│ 輸出提案，等待用戶確認         │
-│ • 確認 → 建立 Epic + 子任務    │
-│ • 調整 → 修改後重新確認        │
-│ • 取消 → 放棄建立              │
+│ Output proposal, await user     │
+│ confirmation                     │
+│ • Confirm → Create Epic + tasks │
+│ • Adjust → Modify and reconfirm │
+│ • Cancel → Abandon creation      │
 └─────────────────────────────────┘
          │
-         ▼ 確認後
+         ▼ After confirmation
 ┌─────────────────────────────────┐
-│ 建立檔案：                      │
-│ • Epic YAML                     │
-│ • 子任務 JSON（T1.1, T1.2...） │
-│ • 更新 Kanban                   │
+│ Create files:                    │
+│ • Epic YAML                      │
+│ • Sub-task JSON (T1.1, T1.2...) │
+│ • Update Kanban                  │
 └─────────────────────────────────┘
 ```
 
-### Feature → Epic 上升流程
+### Feature → Epic Elevation Flow
 
-在 `/feature` 執行時，如果 specist 判斷範圍過大：
+During `/feature` execution, if the specist determines the scope is too large:
 
 ```
-/feature sf_project, 實作折讓功能
+/feature sf_project, Implement Allowance Feature
          │
          ▼
-    信心度評估（澄清）
+    Confidence Assessment (Clarification)
          │
-         │ 信心度 ≥ 95%
+         │ Confidence ≥ 95%
          ▼
-    範圍評估 ← 這裡判斷是否上升 Epic
+    Scope Assessment ← This is where Epic elevation is decided
          │
     ┌────┴────┐
     │         │
- 維持       建議上升 Epic
-Feature    （詢問用戶）
-    │         │
-    ▼         ▼
- 繼續      /epic ...
+ Maintain   Suggest Epic
+ Feature    Elevation
+    │       (Ask user)
+    ▼         │
+ Continue     ▼
+            /epic ...
 ```
 
-**注意**：範圍評估在信心度達到 95% **之後**才執行，避免在不理解需求的情況下做錯誤判斷。
+**Note**: Scope assessment is performed **after** confidence reaches 95%, to avoid making incorrect judgments without understanding the requirements.
 
-### 執行 Epic 子任務
+### Executing Epic Sub-tasks
 
-Epic 的子任務使用標準 command 執行，格式為 `{epic-id}:{task-id}`：
+Epic sub-tasks are executed using standard commands, formatted as `{epic-id}:{task-id}`:
 
 ```bash
-/feature core_web, erp-period-domain:T1-1    # 執行 Epic 子任務 T1-1
-/fix core_web, erp-period-domain:T2-3        # 執行 Epic 子任務 T2-3
+/feature core_web, erp-period-domain:T1-1    # Execute Epic sub-task T1-1
+/fix core_web, erp-period-domain:T2-3        # Execute Epic sub-task T2-3
 ```
 
-執行時會自動：
-1. 讀取 `epic.yml` 取得任務定義
-2. 檢查依賴（dependencies）是否已完成
-3. 如果有未完成的依賴，提示用戶並阻止啟動
-4. 建立任務 JSON（含 `epic` 字段關聯）
-5. 更新 Epic 中該任務的 status 為 `in_progress`
+When executed, the system will automatically:
+1. Read `epic.yml` to get the task definition
+2. Check if dependencies are completed
+3. If there are uncompleted dependencies, prompt the user and block startup
+4. Create task JSON (with `epic` field for association)
+5. Update the task's status to `in_progress` in the Epic
 
-### Epic 同步機制
+### Epic Sync Mechanism
 
-當 Epic 子任務完成（`/done` 或 `/close`）時，系統會自動同步 Epic 狀態：
+When an Epic sub-task is completed (`/done` or `/close`), the system automatically syncs Epic status:
 
-#### 同步內容
+#### Sync Content
 
-| 檔案 | 更新內容 |
-|------|----------|
-| `epic.yml` | task status → `completed`、metrics 更新 |
-| `tasks.md` | 進度總覽、已完成任務清單、下一個任務指示 |
+| File | Updated Content |
+|------|----------------|
+| `epic.yml` | task status → `completed`, metrics update |
+| `tasks.md` | Progress overview, completed tasks list, next task indicator |
 
-#### 識別方式
+#### Identification Method
 
-任務 JSON 中的 `epic` 字段用於關聯：
+The `epic` field in the task JSON is used for association:
 
 ```json
 {
   "epic": {
     "id": "erp-period-domain",
     "taskId": "T2-3",
-    "phase": "Phase 2: 核心 UseCases"
+    "phase": "Phase 2: Core UseCases"
   }
 }
 ```
 
-#### 進度追蹤
+#### Progress Tracking
 
-**重要**：Epic 的真實進度記錄在 `tasks.md`，而非 `epic.yml` 的 metrics。
+**Important**: The Epic's actual progress is recorded in `tasks.md`, not in `epic.yml`'s metrics.
 
-`/status` 命令會從 `tasks.md` 讀取進度顯示：
+The `/status` command reads progress from `tasks.md` to display:
 
 ```markdown
-| 指標 | 數值 |
-|------|------|
-| **已完成任務** | 14 / 32 |
-| **進度百分比** | 44% |
-| **當前 Phase** | Phase 2 進行中 |
-| **下一個任務** | T2-3: 實作 ExportPeriod UseCase |
+| Metric | Value |
+|--------|-------|
+| **Completed Tasks** | 14 / 32 |
+| **Progress** | 44% |
+| **Current Phase** | Phase 2 in progress |
+| **Next Task** | T2-3: Implement ExportPeriod UseCase |
 ```
 
-### 查看 Epic 進度
+### Viewing Epic Progress
 
 ```bash
 /status
 ```
 
-輸出範例：
+Example output:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ 📊 sf_project 任務狀態                               │
+│ 📊 sf_project Task Status                            │
 ├──────────────────────────────────────────────────────┤
 │                                                      │
-│ 🎯 Epic: 發票折讓體系                                │
-│    進度：13/17 (76%)  ████████░░ 剩餘 4 tasks        │
+│ 🎯 Epic: Invoice Allowance System                    │
+│    Progress: 13/17 (76%)  ████████░░ 4 tasks remain  │
 │                                                      │
-│    ✅ Phase 1: 調查確認      5/5                    │
-│    ✅ Phase 2: 技術債清理    3/3                    │
-│    🔄 Phase 4: 折讓體系建立  1/5                    │
-│       ├─ ✅ T4.1 建立資料表                         │
-│       ├─ ⏳ T4.2 實作 AR Allowance (可開始)         │
-│       └─ 🔒 T4.4 整合 EcPay (等待 T4.2, T4.3)      │
+│    ✅ Phase 1: Investigation       5/5               │
+│    ✅ Phase 2: Tech Debt Cleanup   3/3               │
+│    🔄 Phase 4: Allowance System    1/5               │
+│       ├─ ✅ T4.1 Create tables                       │
+│       ├─ ⏳ T4.2 Implement AR Allowance (ready)      │
+│       └─ 🔒 T4.4 Integrate EcPay (awaiting T4.2, T4.3) │
 │                                                      │
 └──────────────────────────────────────────────────────┘
 ```
 
-### Epic 目錄結構
+### Epic Directory Structure
 
 ```
 epics/
 └── {project}/
-    ├── active/           # 進行中的 Epic
+    ├── active/           # In-progress Epics
     │   └── {epic-id}.yml
-    └── completed/        # 已完成的 Epic
+    └── completed/        # Completed Epics
         └── {epic-id}.yml
 
 tasks/
 └── {project}/
     ├── active/
-    │   ├── T1.1.json     # Epic 子任務
+    │   ├── T1.1.json     # Epic sub-tasks
     │   └── T4.2.json
     └── completed/
 ```
 
 ---
 
-## 工作流程詳解
+## Workflow Details
 
-### 階段說明
+### Phase Descriptions
 
-#### 1. Requirement（需求釐清）
+#### 1. Requirement (Requirements Clarification)
 
-**目標**：確保需求明確，達到足夠信心度
+**Goal**: Ensure requirements are clear, reaching sufficient confidence
 
-**Agent**：specist
+**Agent**: specist
 
-**你需要做的事**：
-- 回答 specist 的問題
-- 提供業務背景和限制條件
-- 確認假設是否正確
+**What you need to do**:
+- Answer the specist's questions
+- Provide business context and constraints
+- Confirm whether assumptions are correct
 
-**何時結束**：信心度達到門檻（全部 95%）
-
----
-
-#### 2. Specification（規格設計）
-
-**目標**：建立正式的功能規格
-
-**Agent**：specist
-
-**產出**：
-- Given-When-Then 格式的驗收條件
-- 邊界案例定義
-- 錯誤處理規格
-
-**你需要做的事**：
-- 審核規格是否正確
-- 確認邊界案例是否完整
+**When it ends**: Confidence reaches the threshold (95% for all)
 
 ---
 
-#### 3. Testing（測試調整）
+#### 2. Specification (Specification Design)
 
-**目標**：生成測試代碼
+**Goal**: Create formal feature specifications
 
-**Agent**：tester
+**Agent**: specist
 
-**產出**：
-- 測試檔案（RSpec/Jest/Pytest）
-- 測試骨架（先 pending）
+**Output**:
+- Acceptance criteria in Given-When-Then format
+- Edge case definitions
+- Error handling specifications
 
-**你需要做的事**：
-- 確認測試覆蓋所有驗收條件
-- （可選）調整測試細節
-
----
-
-#### 4. Development（開發）
-
-**目標**：實作代碼讓測試通過
-
-**Agent**：coder
-
-**產出**：
-- 業務邏輯代碼
-- 通過的測試
-
-**你需要做的事**：
-- 通常無需介入
-- 如果測試反覆失敗，可能需要協助
+**What you need to do**:
+- Review whether specifications are correct
+- Confirm whether edge cases are complete
 
 ---
 
-#### 5. Review（結果審查）
+#### 3. Testing (Test Adjustment)
 
-**目標**：確保代碼品質
+**Goal**: Generate test code
 
-**Agents**：
-- style-reviewer（代碼風格）
-- risk-reviewer（安全/效能）
+**Agent**: tester
 
-**產出**：
-- 審查報告
-- 評分（A/B/C/D）
+**Output**:
+- Test files (RSpec/Jest/Pytest)
+- Test skeletons (initially pending)
 
-**你需要做的事**：
-- 審核報告
-- 決定是否接受（可要求修正）
+**What you need to do**:
+- Confirm tests cover all acceptance criteria
+- (Optional) Adjust test details
 
 ---
 
-#### 6. Gate（品質門檻）
+#### 4. Development
 
-**目標**：最終品質把關
+**Goal**: Implement code to make tests pass
 
-**Agent**：gatekeeper
+**Agent**: coder
 
-**檢查項目**：
-- 所有測試通過
-- 審查評分達標
-- 規格對照完整
-- 無遺漏的 TODO
+**Output**:
+- Business logic code
+- Passing tests
 
-**你需要做的事**：
-- 確認 Go/No-Go 決定
-- 簽核完成
+**What you need to do**:
+- Usually no intervention needed
+- May need to assist if tests repeatedly fail
 
 ---
 
-## 6 Agent 架構
+#### 5. Review (Result Review)
 
-### specist（規格專家）
+**Goal**: Ensure code quality
 
-**職責**：
-- 需求分析與澄清
-- 信心度評估
-- 撰寫 Given-When-Then 規格
-- 載入 Domain 知識
+**Agents**:
+- style-reviewer (code style)
+- risk-reviewer (security/performance)
 
-**工具**：Read, Glob, Grep, SlashCommand, WebSearch
+**Output**:
+- Review report
+- Grade (A/B/C/D)
 
-**特點**：不能寫代碼，只能透過 spec-kit 寫規格
-
----
-
-### tester（測試專家）
-
-**職責**：
-- 根據規格生成測試
-- 執行測試並分析失敗
-- 建議修復方向
-
-**工具**：Read, Glob, Grep, Write, Edit, Bash
-
-**支援框架**：RSpec, Jest, Pytest
+**What you need to do**:
+- Review the report
+- Decide whether to accept (can request corrections)
 
 ---
 
-### coder（開發專家）
+#### 6. Gate (Quality Gate)
 
-**職責**：
-- 實作業務邏輯
-- 讓測試通過
-- 遵循 DDD 架構
+**Goal**: Final quality control
 
-**工具**：Read, Glob, Grep, Write, Edit, Bash
+**Agent**: gatekeeper
 
-**模式**：Entity, Service, Repository, Use Case
+**Check items**:
+- All tests pass
+- Review grade meets standards
+- Specification alignment is complete
+- No remaining TODOs
 
----
-
-### style-reviewer（風格審查）
-
-**職責**：
-- 檢查命名規範
-- 檢查語言慣用法
-- 計算複雜度
-- 評分（A/B/C/D）
-
-**工具**：Read, Glob, Grep（唯讀）
-
-**參考**：`style-guides/` 下的語言指南
+**What you need to do**:
+- Confirm Go/No-Go decision
+- Sign off on completion
 
 ---
 
-### risk-reviewer（風險審查）
+## 6 Agent Architecture
 
-**職責**：
-- 安全漏洞檢查（OWASP Top 10）
-- 效能問題檢測
-- 風險評估（Critical/High/Medium/Low）
+### specist (Specification Expert)
 
-**工具**：Read, Glob, Grep（唯讀）
+**Responsibilities**:
+- Requirements analysis and clarification
+- Confidence assessment
+- Writing Given-When-Then specifications
+- Loading Domain knowledge
 
----
+**Tools**: Read, Glob, Grep, SlashCommand, WebSearch
 
-### gatekeeper（品質把關）
-
-**職責**：
-- 檢查所有品質門檻
-- Go/No-Go 決策
-- 知識策展（新規則記錄）
-
-**工具**：Read, Glob, Grep, Write
-
-**門檻**：
-- Test Gate: 所有測試通過
-- Review Gate: 評分 ≥ C
-- Spec Gate: 規格完整對照
-- Doc Gate: 無遺漏 TODO
+**Note**: Cannot write code, can only write specifications through spec-kit
 
 ---
 
-## Commands 參考
+### tester (Testing Expert)
 
-### 任務啟動
+**Responsibilities**:
+- Generating tests from specifications
+- Running tests and analyzing failures
+- Suggesting fix directions
 
-| Command | 說明 | 範例 |
-|---------|------|------|
-| `/feature {project}, {title}` | 新功能 | `/feature sf_project, 專案審核` |
-| `/fix {project}, {title}` | Bug 修復 | `/fix core_web, 登入錯誤` |
-| `/refactor {project}, {title}` | 重構 | `/refactor sf_project, 移除舊報表` |
-| `/test {project}, {title}` | 補測試 | `/test sf_project, 審核服務測試` |
-| `/epic {project}, {title}` | 大型功能（Epic） | `/epic sf_project, 發票折讓體系` |
+**Tools**: Read, Glob, Grep, Write, Edit, Bash
 
-### 任務控制
-
-| Command | 說明 | 使用時機 |
-|---------|------|----------|
-| `/continue` | 進入下一階段 | 當前階段已完成 |
-| `/status` | 查看進度（含 Epic） | 任何時候 |
-| `/abort` | 放棄任務 | 不想繼續 |
+**Supported frameworks**: RSpec, Jest, Pytest
 
 ---
 
-## Metrics 追蹤
+### coder (Development Expert)
 
-系統會自動追蹤每個 Agent 的資源消耗。
+**Responsibilities**:
+- Implementing business logic
+- Making tests pass
+- Following DDD architecture
 
-### 追蹤的指標
+**Tools**: Read, Glob, Grep, Write, Edit, Bash
 
-| 指標 | 說明 | 範例 |
-|------|------|------|
-| **Tool Uses** | Agent 使用的工具次數 | 21 |
-| **Tokens** | Token 消耗量 | 41.9k |
-| **Duration** | 執行時間 | 2m 12s |
+**Patterns**: Entity, Service, Repository, Use Case
 
-### 查看方式
+---
 
-#### 1. `/status` 指令
+### style-reviewer (Style Review)
+
+**Responsibilities**:
+- Checking naming conventions
+- Checking language idioms
+- Calculating complexity
+- Grading (A/B/C/D)
+
+**Tools**: Read, Glob, Grep (read-only)
+
+**Reference**: Language guides under `style-guides/`
+
+---
+
+### risk-reviewer (Risk Review)
+
+**Responsibilities**:
+- Security vulnerability checks (OWASP Top 10)
+- Performance issue detection
+- Risk assessment (Critical/High/Medium/Low)
+
+**Tools**: Read, Glob, Grep (read-only)
+
+---
+
+### gatekeeper (Quality Gate)
+
+**Responsibilities**:
+- Checking all quality thresholds
+- Go/No-Go decisions
+- Knowledge curation (recording new rules)
+
+**Tools**: Read, Glob, Grep, Write
+
+**Thresholds**:
+- Test Gate: All tests pass
+- Review Gate: Grade ≥ C
+- Spec Gate: Complete specification alignment
+- Doc Gate: No remaining TODOs
+
+---
+
+## Commands Reference
+
+### Task Startup
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/feature {project}, {title}` | New feature | `/feature sf_project, Project Approval` |
+| `/fix {project}, {title}` | Bug fix | `/fix core_web, Login Error` |
+| `/refactor {project}, {title}` | Refactoring | `/refactor sf_project, Remove Old Reports` |
+| `/test {project}, {title}` | Add tests | `/test sf_project, Approval Service Tests` |
+| `/epic {project}, {title}` | Large feature (Epic) | `/epic sf_project, Invoice Allowance System` |
+
+### Task Control
+
+| Command | Description | When to Use |
+|---------|-------------|-------------|
+| `/continue` | Enter next phase | When current phase is complete |
+| `/status` | Check progress (including Epic) | Any time |
+| `/abort` | Abandon task | When you don't want to continue |
+
+---
+
+## Metrics Tracking
+
+The system automatically tracks resource consumption for each Agent.
+
+### Tracked Metrics
+
+| Metric | Description | Example |
+|--------|-------------|---------|
+| **Tool Uses** | Number of tools used by Agent | 21 |
+| **Tokens** | Token consumption | 41.9k |
+| **Duration** | Execution time | 2m 12s |
+
+### Viewing Methods
+
+#### 1. `/status` Command
 
 ```
-═══ 使用的 Agents ═══
+═══ Agents Used ═══
 
-1. specist (需求分析)
+1. specist (Requirements Analysis)
    └─ 15 tools · 28.5k tokens · 1m 45s
 
-2. tester (測試生成)
+2. tester (Test Generation)
    └─ 21 tools · 41.9k tokens · 2m 12s
 
-═══ 資源消耗 ═══
-🔧 Tools：36
-📊 Tokens：70.4k
-⏱️ 時間：3m 57s
+═══ Resource Consumption ═══
+🔧 Tools: 36
+📊 Tokens: 70.4k
+⏱️ Time: 3m 57s
 ```
 
-#### 2. Kanban 卡片
+#### 2. Kanban Card
 
-完成的任務會在 description 顯示：
+Completed tasks show in the description:
 
 ```markdown
 **Agents**: specist(15/28.5k), tester(21/41.9k), coder(18/35.2k)
-**總計**: 54 tools / 105.6k tokens / 5m 42s
+**Total**: 54 tools / 105.6k tokens / 5m 42s
 ```
 
-#### 3. JSON 任務檔
+#### 3. JSON Task File
 
 ```json
 {
@@ -541,133 +543,133 @@ tasks/
 }
 ```
 
-### 用途
+### Use Cases
 
-- **成本分析**：了解每個任務的 token 消耗
-- **效能優化**：找出耗時較長的階段
-- **比較基準**：不同類型任務的資源需求
+- **Cost analysis**: Understand token consumption per task
+- **Performance optimization**: Identify time-consuming phases
+- **Benchmarking**: Resource requirements for different task types
 
 ---
 
-## 常見問題
+## FAQ
 
-### Q: 可以在階段轉移時 `/clear` 清理對話嗎？
+### Q: Can I `/clear` to clean the conversation during phase transitions?
 
-**A**: 可以，而且建議這樣做。
+**A**: Yes, and it's recommended.
 
-ATDD 工作流程的 Agent 間 context 傳遞**不依賴對話記憶**，而是透過：
-- 任務 JSON（`tasks/{project}/active/*.json`）
-- 規格檔案
-- 測試檔案
+The ATDD workflow's inter-Agent context transfer **does not rely on conversation memory**, but instead uses:
+- Task JSON (`tasks/{project}/active/*.json`)
+- Specification files
+- Test files
 - E2E Fixtures
 
-**安全的 clear 時機**：
+**Safe times to clear**:
 ```
-✅ /continue 後、Agent 開始前
-✅ /fix-critical、/fix-high、/fix-all 後
-✅ 任何階段轉移完成時
-```
-
-**不建議 clear 的情況**：
-```
-⚠️ 階段進行中（例如還在和 specist 對話釐清需求）
-⚠️ 你口頭提供了重要資訊但還沒被寫入任務 JSON
+✅ After /continue, before Agent starts
+✅ After /fix-critical, /fix-high, /fix-all
+✅ When any phase transition is complete
 ```
 
-系統會在階段轉移時提示：`💡 可依序輸入：/clear → /continue 清理對話後繼續`
-
-**`/clear` 後恢復流程**：
+**Not recommended to clear**:
 ```
-/clear（清空對話）
+⚠️ During a phase (e.g., still clarifying requirements with specist)
+⚠️ You've verbally provided important information not yet written to task JSON
+```
+
+The system will prompt during phase transitions: `💡 You can enter: /clear → /continue to clean conversation and continue`
+
+**Recovery flow after `/clear`**:
+```
+/clear (clear conversation)
     ↓
-/continue（系統讀取 JSON）
+/continue (system reads JSON)
     ↓
-如果有多個任務 → 列出選擇
-如果只有一個 → 直接繼續
+If multiple tasks → list choices
+If only one → continue directly
 ```
 
 ---
 
-### Q: 可以跳過某些階段嗎？
+### Q: Can I skip certain phases?
 
-**A**: 不建議。每個階段都有其目的：
-- Requirement 確保方向正確
-- Testing 確保行為正確
-- Review 確保品質達標
+**A**: Not recommended. Each phase serves a purpose:
+- Requirement ensures the direction is correct
+- Testing ensures behavior is correct
+- Review ensures quality meets standards
 
-跳過可能導致返工成本更高。
-
----
-
-### Q: 測試一直失敗怎麼辦？
-
-**A**: 系統允許 `testing` ↔ `development` 循環：
-1. tester 分析失敗原因
-2. coder 嘗試修復
-3. 重新執行測試
-
-如果循環太多次，可能需要回到 requirement 重新釐清需求。
+Skipping may lead to higher rework costs.
 
 ---
 
-### Q: 審查評分太低怎麼辦？
+### Q: What if tests keep failing?
 
-**A**: 有兩個選擇：
-1. **修正**：回到 development 改善代碼
-2. **接受**：如果有正當理由（如時程壓力），可選擇接受並記錄原因
+**A**: The system allows `testing` ↔ `development` loops:
+1. tester analyzes failure causes
+2. coder attempts to fix
+3. Re-run tests
+
+If the loop repeats too many times, you may need to return to requirement to re-clarify needs.
 
 ---
 
-### Q: 可以同時進行多個任務嗎？
+### Q: What if the review score is too low?
 
-**A**: 可以。系統支援多個 active 任務同時存在。
+**A**: Two options:
+1. **Fix**: Return to development to improve the code
+2. **Accept**: If there's a valid reason (e.g., timeline pressure), you can accept and record the reason
 
-當有多個任務時，`/continue` 會列出所有 active 任務讓你選擇：
+---
+
+### Q: Can I work on multiple tasks simultaneously?
+
+**A**: Yes. The system supports multiple active tasks at the same time.
+
+When there are multiple tasks, `/continue` will list all active tasks for you to choose:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ 📋 發現多個進行中的任務                              │
+│ 📋 Multiple tasks in progress found                  │
 ├──────────────────────────────────────────────────────┤
-│ 1. [sf_project] 專案審核流程 (testing)               │
-│ 2. [core_web] 登入頁面修復 (requirement)             │
+│ 1. [sf_project] Project Approval Workflow (testing)  │
+│ 2. [core_web] Login Page Fix (requirement)           │
 └──────────────────────────────────────────────────────┘
 ```
 
-你也可以直接指定：`/continue sf_project` 或 `/continue {task_id}`。
+You can also specify directly: `/continue sf_project` or `/continue {task_id}`.
 
-> **建議**：雖然支援多任務，但同一時間專注於 1-2 個任務效率較高。
+> **Tip**: While multi-tasking is supported, focusing on 1-2 tasks at a time is more efficient.
 
 ---
 
-### Q: 如何查看歷史任務？
+### Q: How to view historical tasks?
 
 **A**:
-- 看板：`tasks/{project}/kanban.md`
-- 已完成：`tasks/{project}/completed/`
-- 已失敗：`tasks/{project}/failed/`
+- Kanban: `tasks/{project}/kanban.md`
+- Completed: `tasks/{project}/completed/`
+- Failed: `tasks/{project}/failed/`
 
 ---
 
-### Q: 信心度是如何計算的？
+### Q: How is confidence calculated?
 
-**A**: specist 根據以下因素評估：
+**A**: The specist evaluates based on the following factors:
 
-| 因素 | 說明 |
-|------|------|
-| 業務規則明確性 | 核心邏輯是否清楚 |
-| 邊界條件定義 | 特殊情況是否處理 |
-| 資料結構 | 輸入輸出格式是否明確 |
-| 錯誤處理 | 異常情況是否定義 |
-| 整合點 | 與其他系統的互動是否清楚 |
+| Factor | Description |
+|--------|-------------|
+| Business rule clarity | Whether core logic is clear |
+| Boundary condition definition | Whether special cases are handled |
+| Data structure | Whether input/output formats are clear |
+| Error handling | Whether exceptions are defined |
+| Integration points | Whether interactions with other systems are clear |
 
 ---
 
-## 附錄：檔案結構
+## Appendix: File Structure
 
 ```
 atdd-hub/
 ├── .claude/
-│   ├── agents/           # Agent 定義
+│   ├── agents/           # Agent definitions
 │   │   ├── specist.md
 │   │   ├── tester.md
 │   │   ├── coder.md
@@ -679,24 +681,24 @@ atdd-hub/
 │       ├── fix.md
 │       ├── refactor.md
 │       ├── test.md
-│       ├── epic.md       # Epic 管理
+│       ├── epic.md       # Epic management
 │       ├── continue.md
 │       ├── status.md
 │       └── abort.md
-├── epics/                # Epic 記錄
+├── epics/                # Epic records
 │   ├── sf_project/
 │   │   ├── active/
 │   │   └── completed/
 │   └── README.md
-├── tasks/                # 任務記錄
+├── tasks/                # Task records
 │   ├── sf_project/
 │   └── core_web/
-├── style-guides/         # 代碼風格指南
+├── style-guides/         # Code style guides
 │   ├── ruby.md
 │   ├── python.md
 │   └── javascript.md
-├── domains/              # Domain 知識
-├── docs/                 # 文檔
+├── domains/              # Domain knowledge
+├── docs/                 # Documentation
 │   └── operation-manual.md
-└── CLAUDE.md             # AI 指令
+└── CLAUDE.md             # AI instructions
 ```
