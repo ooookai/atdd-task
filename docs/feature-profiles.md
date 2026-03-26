@@ -1,119 +1,119 @@
-# Feature 驗收 Profile 指南
+# Feature Acceptance Profile Guide
 
-Feature Profile 根據「**如何才能有效驗收**」來分類，而非功能類型。選擇依據是結果何時可見、是否需要模擬環境。
+Feature Profiles are classified based on "**how to effectively verify acceptance**", not by feature type. The selection is based on when results are visible and whether a simulated environment is needed.
 
-機器可讀的完整定義請見 `acceptance/registry.yml`。
-
----
-
-## e2e — 端對端驗收
-
-透過瀏覽器驗證完整用戶流程，結果即時可見。屬任務形態的單點驗收，由 atdd-hub 管理。
-
-| 項目 | 說明 |
-|------|------|
-| **執行器** | Chrome MCP |
-| **測試格式** | Gherkin（Given-When-Then） |
-| **存放位置** | atdd-hub `tests/` 或 `acceptance/fixtures/` |
-
-**適用條件**：
-- 結果可在畫面即時看到
-- 等待時間 < 60 秒
-- 不需要時間操作（freeze/travel）
-- 不需要 Mock 外部服務
-
-**不適用條件**：
-- 結果需等待超過 1 分鐘
-- 依賴特定時間點（週結、月結）
-- 依賴外部服務回應且不穩定
-- 需要模擬併發/Race Condition
-
-**範例場景**：表單送出後頁面更新、點擊按鈕後顯示 Modal、搜尋後列表篩選、登入後跳轉頁面
+Machine-readable complete definitions can be found at `acceptance/registry.yml`.
 
 ---
 
-## integration — 整合驗收
+## e2e — End-to-End Acceptance
 
-透過測試框架驗證跨元件/跨 Domain 的業務結果。屬專案層級的回歸測試（防守型城牆），存放在各專案 repo 內，由 CI/CD 自動觸發。
+Verifies complete user flows through the browser, with results visible in real-time. This is a single-point acceptance for task-shaped work, managed by atdd-hub.
 
-| 項目 | 說明 |
-|------|------|
-| **執行器** | RSpec / Jest |
-| **測試格式** | RSpec / Jest |
-| **存放位置** | 各專案 `spec/domains/**/integration/` |
+| Item | Description |
+|------|-------------|
+| **Runner** | Chrome MCP |
+| **Test Format** | Gherkin (Given-When-Then) |
+| **Storage Location** | atdd-hub `tests/` or `acceptance/fixtures/` |
 
-**適用條件**：
-- 結果需等待超過 1 分鐘
-- 需要時間操作（freeze/travel_to）
-- 需要 Mock 外部服務
-- 需要模擬併發/Race Condition
-- 跨多個 Domain 的資料流驗證
-- 背景作業/排程任務
+**Applicable when**:
+- Results are immediately visible on screen
+- Wait time < 60 seconds
+- No time manipulation needed (freeze/travel)
+- No external service mocking needed
 
-**範例場景**：上傳檔案後等待處理完成、週/月結算排程、外部 API 串接、跨 Domain 資料流、背景 Job 處理
+**Not applicable when**:
+- Results require waiting more than 1 minute
+- Depends on specific time points (weekly settlement, monthly settlement)
+- Depends on external service responses and is unstable
+- Needs to simulate concurrency/Race Conditions
 
----
-
-## calculation — 計算/邏輯驗收
-
-驗證後端計算邏輯、業務規則，無 UI 互動。屬專案層級的回歸測試，由 CI/CD 自動觸發。
-
-| 項目 | 說明 |
-|------|------|
-| **執行器** | RSpec / Jest |
-| **測試格式** | RSpec / Jest |
-| **存放位置** | 各專案 `spec/domains/**/` |
-
-**適用條件**：
-- 純後端邏輯變更
-- 計算公式或業務規則
-- Entity/Service 方法變更
-- 無 UI 互動
-- 結果需透過 Console 或 API 驗證
-
-**範例場景**：Entity 方法邏輯變更（如 `b2b?` 判斷）、稅額計算、業務規則判斷（如路由選擇）、資料轉換邏輯、無 UI 的 Service/UseCase 變更
+**Example scenarios**: Form submission updates page, button click shows Modal, search filters list, login redirects to page
 
 ---
 
-## unit — 單元驗收
+## integration — Integration Acceptance
 
-驗證純邏輯計算、規則、演算法的正確性。屬專案層級的回歸測試，由 CI/CD 自動觸發。
+Verifies cross-component/cross-Domain business results through test frameworks. This is project-level regression testing (defensive wall), stored in each project repo, triggered automatically by CI/CD.
 
-| 項目 | 說明 |
-|------|------|
-| **執行器** | RSpec / Jest |
-| **測試格式** | RSpec / Jest |
-| **存放位置** | 各專案 `spec/domains/**/unit/` |
+| Item | Description |
+|------|-------------|
+| **Runner** | RSpec / Jest |
+| **Test Format** | RSpec / Jest |
+| **Storage Location** | Each project's `spec/domains/**/integration/` |
 
-**適用條件**：
-- 純計算邏輯（公式、演算法）
-- 單一業務規則驗證
-- Value Object 行為
-- Domain Service 邏輯
-- 不涉及 I/O 或外部依賴
+**Applicable when**:
+- Results require waiting more than 1 minute
+- Time manipulation needed (freeze/travel_to)
+- External service mocking needed
+- Concurrency/Race Condition simulation needed
+- Cross-Domain data flow verification
+- Background jobs/scheduled tasks
 
-**測試重點**：公式正確性、邊界值處理、異常輸入處理、精度驗證
-
-**範例場景**：金額計算公式、日期格式轉換、權限規則判斷、狀態機轉換
+**Example scenarios**: Upload file then wait for processing completion, weekly/monthly settlement schedules, external API integrations, cross-Domain data flows, background job processing
 
 ---
 
-## Profile 選擇決策樹
+## calculation — Calculation/Logic Acceptance
+
+Verifies backend calculation logic and business rules, no UI interaction. This is project-level regression testing, triggered automatically by CI/CD.
+
+| Item | Description |
+|------|-------------|
+| **Runner** | RSpec / Jest |
+| **Test Format** | RSpec / Jest |
+| **Storage Location** | Each project's `spec/domains/**/` |
+
+**Applicable when**:
+- Pure backend logic changes
+- Calculation formulas or business rules
+- Entity/Service method changes
+- No UI interaction
+- Results need to be verified via Console or API
+
+**Example scenarios**: Entity method logic changes (e.g., `b2b?` determination), tax calculations, business rule decisions (e.g., routing selection), data transformation logic, Service/UseCase changes without UI
+
+---
+
+## unit — Unit Acceptance
+
+Verifies pure logic calculations, rules, and algorithm correctness. This is project-level regression testing, triggered automatically by CI/CD.
+
+| Item | Description |
+|------|-------------|
+| **Runner** | RSpec / Jest |
+| **Test Format** | RSpec / Jest |
+| **Storage Location** | Each project's `spec/domains/**/unit/` |
+
+**Applicable when**:
+- Pure calculation logic (formulas, algorithms)
+- Single business rule verification
+- Value Object behavior
+- Domain Service logic
+- No I/O or external dependencies involved
+
+**Test focus**: Formula correctness, boundary value handling, abnormal input handling, precision verification
+
+**Example scenarios**: Amount calculation formulas, date format conversions, permission rule decisions, state machine transitions
+
+---
+
+## Profile Selection Decision Tree
 
 ```
-Q1: 結果是否可在畫面即時看到（< 60 秒）？
+Q1: Are results immediately visible on screen (< 60 seconds)?
     YES → e2e
     NO  ↓
-Q2: 是否需要時間操作（週結、月結、延遲執行）？
+Q2: Does it require time manipulation (weekly settlement, monthly settlement, delayed execution)?
     YES → integration
     NO  ↓
-Q3: 是否依賴外部服務且需要 Mock？
+Q3: Does it depend on external services and require mocking?
     YES → integration
     NO  ↓
-Q4: 是否為後端邏輯變更，無 UI 互動，需要 Console 驗證？
+Q4: Is it a backend logic change with no UI interaction, requiring Console verification?
     YES → calculation
     NO  ↓
-Q5: 是否為純計算/規則邏輯？
+Q5: Is it pure calculation/rule logic?
     YES → unit
     NO  → integration
 ```
